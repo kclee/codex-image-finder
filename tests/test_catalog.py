@@ -8,9 +8,10 @@ from pathlib import Path
 from PIL import Image
 
 from image_finder.analysis_queue import AnalysisQueue, AnalysisSpec
+from image_finder.analysis_specs import MOBILE_SUBTITLE_SPEC
 from image_finder.catalog import Catalog
 from image_finder.database import connect
-from image_finder.ocr_engine import MOBILE_SUBTITLE_SPEC, _extract_lines
+from image_finder.ocr_engine import _extract_lines
 
 
 class DatabaseSchemaTests(unittest.TestCase):
@@ -140,6 +141,29 @@ class AnalysisQueueTests(unittest.TestCase):
                 )
                 self.assertEqual(queue.counts(run_id)["succeeded"], 1)
                 self.assertEqual(queue.enqueue_missing(run_id), 0)
+            finally:
+                catalog.close()
+
+    def test_bounded_enqueue_never_prepares_more_than_batch(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            library = root / "library"
+            project.mkdir()
+            library.mkdir()
+            for number in range(12):
+                Image.new("RGB", (20, 20), (number, 0, 0)).save(
+                    library / f"{number:02}.png"
+                )
+            catalog = Catalog(project / "data" / "catalog.sqlite3", project)
+            try:
+                catalog.scan_library(library)
+                queue = AnalysisQueue(catalog.connection)
+                run_id = queue.ensure_run(MOBILE_SUBTITLE_SPEC)
+                self.assertEqual(queue.enqueue_next_missing(run_id, 5), 5)
+                self.assertEqual(queue.counts(run_id)["pending"], 5)
+                self.assertEqual(queue.enqueue_next_missing(run_id, 5), 0)
+                self.assertEqual(queue.counts(run_id)["pending"], 5)
             finally:
                 catalog.close()
 

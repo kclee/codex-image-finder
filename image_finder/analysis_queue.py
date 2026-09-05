@@ -100,6 +100,48 @@ class AnalysisQueue:
             (run_id, _now(), run_id),
         )
         inserted = self.connection.total_changes - before
+        if inserted:
+            self.connection.execute(
+                "UPDATE analysis_runs SET completed_at=NULL WHERE id=?", (run_id,)
+            )
+        self.connection.commit()
+        return inserted
+
+    def enqueue_next_missing(self, run_id: str, batch_size: int) -> int:
+        if batch_size <= 0:
+            return 0
+        pending = self.counts(run_id)["pending"]
+        available_slots = max(0, batch_size - pending)
+        if available_slots == 0:
+            return 0
+        before = self.connection.total_changes
+        self.connection.execute(
+            """
+            INSERT OR IGNORE INTO analysis_jobs(run_id, image_id, status, queued_at)
+            SELECT ?, i.id, 'pending', ?
+            FROM images i
+            WHERE EXISTS (
+                SELECT 1 FROM file_locations fl
+                WHERE fl.image_id=i.id AND fl.is_present=1
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM analysis_results ar
+                WHERE ar.run_id=? AND ar.image_id=i.id
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM analysis_jobs aj
+                WHERE aj.run_id=? AND aj.image_id=i.id
+            )
+            ORDER BY i.created_at, i.id
+            LIMIT ?
+            """,
+            (run_id, _now(), run_id, run_id, available_slots),
+        )
+        inserted = self.connection.total_changes - before
+        if inserted:
+            self.connection.execute(
+                "UPDATE analysis_runs SET completed_at=NULL WHERE id=?", (run_id,)
+            )
         self.connection.commit()
         return inserted
 
@@ -127,6 +169,10 @@ class AnalysisQueue:
             ],
         )
         inserted = self.connection.total_changes - before
+        if inserted:
+            self.connection.execute(
+                "UPDATE analysis_runs SET completed_at=NULL WHERE id=?", (run_id,)
+            )
         self.connection.commit()
         return inserted
 

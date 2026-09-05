@@ -6,8 +6,9 @@ import argparse
 from pathlib import Path
 
 from image_finder.analysis_queue import AnalysisQueue
+from image_finder.analysis_specs import MOBILE_SUBTITLE_SPEC
 from image_finder.catalog import Catalog
-from image_finder.ocr_engine import MOBILE_SUBTITLE_SPEC, PaddleSubtitleOcr
+from image_finder.ocr_engine import PaddleSubtitleOcr
 
 
 def main() -> int:

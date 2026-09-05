@@ -354,7 +354,9 @@
           <p><span class="check">Completed:</span> added version-specific pending/running/succeeded/failed/skipped jobs, transactional job claims, interruption recovery, retry support, and completed-result deduplication. A two-image temporary test proved pause/resume behavior without processing or queuing the real library. Normal startup no longer imports the 40-image trial.</p>
           <h3>Versioned OCR adapter validated</h3>
           <p><span class="check">Completed:</span> connected the PP-OCRv5 mobile/lower-frame pipeline to the persistent queue and processed exactly one approved image. It stored the expected subtitle “好想吃冰淇淋哦” at 99.94% confidence in 0.801 seconds; a repeat request queued no work. Full-library OCR remains unqueued.</p>
-          <p><strong>Next proposed step:</strong> add explicit desktop controls for bounded OCR batches, pause/resume, retry, and progress inspection before offering an unrestricted run.</p>
+          <h3>Bounded desktop OCR controls added</h3>
+          <p><span class="check">Completed:</span> added explicit OCR-next-10, pause-after-current-image, retry-failed, and queue-progress controls. A temporary 12-image test proved the batch cap, all seven tests passed, startup remained 0.51 seconds, and no additional real image was processed.</p>
+          <p><strong>Next proposed step:</strong> visually review the OCR controls, then deliberately exercise pause/resume on a small real batch before improving per-image analysis inspection.</p>
         </div>
       </article>
     </section>

@@ -13,28 +13,10 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 
-from .analysis_queue import AnalysisSpec
+from .analysis_specs import MOBILE_SUBTITLE_SPEC
 
 
 CJK_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
-MOBILE_SUBTITLE_SPEC = AnalysisSpec(
-    analysis_type="ocr",
-    engine_name="PaddleOCR",
-    engine_version="3.7.0",
-    model_name="PP-OCRv5_mobile_det+PP-OCRv5_mobile_rec",
-    model_version="PP-OCRv5",
-    pipeline_version="subtitle-lower55-mobile-v1",
-    parameters={
-        "language": "ch",
-        "device": "cpu",
-        "crop_start": 0.45,
-        "minimum_confidence": 0.35,
-        "fallback": "mobile-full-frame-when-no-cjk",
-        "mkldnn": False,
-    },
-)
-
-
 @dataclass(frozen=True, slots=True)
 class OcrOutput:
     all_text: str

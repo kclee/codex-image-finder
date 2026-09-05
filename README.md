@@ -63,6 +63,11 @@ catalog-relative paths. It queues only those image identities, loads the local
 PP-OCRv5 mobile models on demand, and skips results already completed for the same
 engine/model/pipeline version. Full-library OCR is not started automatically.
 
+The desktop action **OCR next 10** prepares and processes at most ten outstanding image
+identities. **Pause OCR** stops after the current image; unfinished jobs remain in
+SQLite for the next run. **Retry failed** explicitly returns failed jobs to the queue.
+Opening the application never starts OCR or prepares the complete library.
+
 ## Source control
 
 Downloaded models, the virtual environment, derived data, generated thumbnails, and
