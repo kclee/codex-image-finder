@@ -4,17 +4,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QObject, QThread, Qt, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMessageBox,
+    QProgressBar,
     QPushButton,
     QSplitter,
     QTreeWidget,
@@ -27,12 +30,40 @@ from .catalog import Catalog
 from .domain import SearchResult
 
 
+class ScanWorker(QObject):
+    progress = Signal(int, str)
+    finished = Signal(object)
+    failed = Signal(str)
+
+    def __init__(self, database_path: Path, project_root: Path, library_root: Path) -> None:
+        super().__init__()
+        self.database_path = database_path
+        self.project_root = project_root
+        self.library_root = library_root
+
+    @Slot()
+    def run(self) -> None:
+        worker_catalog = Catalog(self.database_path, self.project_root)
+        try:
+            summary = worker_catalog.scan_library(
+                self.library_root,
+                lambda update: self.progress.emit(update.discovered, update.current_path),
+            )
+            self.finished.emit(summary)
+        except Exception as error:  # surfaced to the UI rather than lost in the thread
+            self.failed.emit(f"{type(error).__name__}: {error}")
+        finally:
+            worker_catalog.close()
+
+
 class MainWindow(QMainWindow):
     def __init__(self, catalog: Catalog) -> None:
         super().__init__()
         self.catalog = catalog
         self.current_group: str | None = None
         self.current_result: SearchResult | None = None
+        self.scan_thread: QThread | None = None
+        self.scan_worker: ScanWorker | None = None
         self.setWindowTitle("Image Finder — Prototype")
         self.resize(1280, 780)
 
@@ -41,15 +72,20 @@ class MainWindow(QMainWindow):
         self.search_box.setClearButtonEnabled(True)
         self.search_box.textChanged.connect(self.refresh_results)
 
+        self.scan_button = QPushButton("Add / scan folder…")
+        self.scan_button.clicked.connect(self.choose_library)
+        search_row = QWidget()
+        search_layout = QHBoxLayout(search_row)
+        search_layout.setContentsMargins(0, 0, 0, 0)
+        search_layout.addWidget(self.search_box, 1)
+        search_layout.addWidget(self.scan_button)
+
         self.folder_tree = QTreeWidget()
         self.folder_tree.setHeaderLabel("Folders")
         all_item = QTreeWidgetItem(["All images"])
         all_item.setData(0, Qt.ItemDataRole.UserRole, None)
         self.folder_tree.addTopLevelItem(all_item)
-        for group in self.catalog.groups():
-            item = QTreeWidgetItem([group])
-            item.setData(0, Qt.ItemDataRole.UserRole, group)
-            self.folder_tree.addTopLevelItem(item)
+        self.populate_groups()
         self.folder_tree.setCurrentItem(all_item)
         self.folder_tree.currentItemChanged.connect(self.change_group)
 
@@ -64,9 +100,13 @@ class MainWindow(QMainWindow):
         self.gallery.currentItemChanged.connect(self.show_result)
 
         self.count_label = QLabel()
+        self.scan_progress = QProgressBar()
+        self.scan_progress.setRange(0, 0)
+        self.scan_progress.hide()
         center = QWidget()
         center_layout = QVBoxLayout(center)
-        center_layout.addWidget(self.search_box)
+        center_layout.addWidget(search_row)
+        center_layout.addWidget(self.scan_progress)
         center_layout.addWidget(self.count_label)
         center_layout.addWidget(self.gallery, 1)
 
@@ -104,6 +144,69 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(container)
         self.statusBar().showMessage("Source images are read-only; displayed data is rebuildable.")
         self.refresh_results()
+
+    def populate_groups(self) -> None:
+        while self.folder_tree.topLevelItemCount() > 1:
+            self.folder_tree.takeTopLevelItem(1)
+        for group in self.catalog.groups():
+            item = QTreeWidgetItem([group])
+            item.setData(0, Qt.ItemDataRole.UserRole, group)
+            self.folder_tree.addTopLevelItem(item)
+
+    def choose_library(self) -> None:
+        roots = self.catalog.library_roots()
+        starting_directory = str(roots[-1]) if roots else str(Path.home())
+        selected = QFileDialog.getExistingDirectory(
+            self, "Select a read-only image library", starting_directory
+        )
+        if selected:
+            self.start_scan(Path(selected))
+
+    def start_scan(self, library_root: Path) -> None:
+        if self.scan_thread and self.scan_thread.isRunning():
+            return
+        self.scan_button.setEnabled(False)
+        self.scan_progress.show()
+        self.statusBar().showMessage(f"Scanning {library_root}…")
+
+        self.scan_thread = QThread(self)
+        self.scan_worker = ScanWorker(
+            self.catalog.database_path, self.catalog.project_root, library_root
+        )
+        self.scan_worker.moveToThread(self.scan_thread)
+        self.scan_thread.started.connect(self.scan_worker.run)
+        self.scan_worker.progress.connect(self.update_scan_progress)
+        self.scan_worker.finished.connect(self.finish_scan)
+        self.scan_worker.failed.connect(self.fail_scan)
+        self.scan_worker.finished.connect(self.scan_thread.quit)
+        self.scan_worker.failed.connect(self.scan_thread.quit)
+        self.scan_thread.finished.connect(self.scan_worker.deleteLater)
+        self.scan_thread.finished.connect(self.scan_thread.deleteLater)
+        self.scan_thread.start()
+
+    def update_scan_progress(self, count: int, relative_path: str) -> None:
+        self.statusBar().showMessage(f"Discovered {count:,} images · {relative_path}")
+
+    def finish_scan(self, summary: object) -> None:
+        self.scan_progress.hide()
+        self.scan_button.setEnabled(True)
+        self.populate_groups()
+        self.refresh_results()
+        self.statusBar().showMessage(
+            f"Scan complete · {summary.discovered:,} images · "
+            f"{summary.hashed:,} hashed · {summary.unchanged:,} unchanged · "
+            f"{summary.errors:,} errors"
+        )
+        self.scan_worker = None
+        self.scan_thread = None
+
+    def fail_scan(self, message: str) -> None:
+        self.scan_progress.hide()
+        self.scan_button.setEnabled(True)
+        self.statusBar().showMessage("Scan failed")
+        QMessageBox.critical(self, "Scan failed", message)
+        self.scan_worker = None
+        self.scan_thread = None
 
     def change_group(self, current: QTreeWidgetItem | None, _previous: QTreeWidgetItem | None) -> None:
         self.current_group = current.data(0, Qt.ItemDataRole.UserRole) if current else None

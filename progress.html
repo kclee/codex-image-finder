@@ -314,6 +314,7 @@
 
       <article class="card wide">
         <h2>Progress journal</h2>
+        <p>Detailed implementation method, verification evidence, affected files, and commit references are recorded in the <a href="docs/journal/2026-09-05.md">September 5 development journal</a>. This page remains the concise visual dashboard.</p>
         <div class="log-entry">
           <time datetime="2026-09-05">September 5, 2026</time>
           <h3>Project concept established</h3>
@@ -343,7 +344,11 @@
           <p><span class="check">Completed:</span> installed PySide6 6.11.2 in the project-local environment, created the initial versioned SQLite schema, added a UI-independent catalog service, and built a native three-panel gallery with folder filtering, subtitle/text search, preview details, and open-original action. The catalog imports all 40 trial images and recognizes them by SHA-256 content hash.</p>
           <h3>Local source control initialized</h3>
           <p><span class="check">Completed:</span> initialized a local Git repository on the main branch, recorded the OCR benchmark and desktop prototype in separate commits, and added repository documentation and exclusions for virtual environments, OCR models, source images, databases, caches, thumbnails, and packaging output. A private GitHub repository is recommended because reports may contain personal paths, filenames, or recognized text.</p>
-          <p><strong>Next proposed step:</strong> visually review the desktop scaffold, then add full-library discovery and incremental background indexing.</p>
+          <h3>Full read-only discovery completed</h3>
+          <p><span class="check">Completed:</span> added stable content identity, location history, scan-run records, derived thumbnails, and a background desktop scanning adapter. The first pass discovered and hashed all 3,337 files with 3,334 unique image identities and zero errors. An immediate second pass reused all 3,337 unchanged records without hashing or regenerating thumbnails.</p>
+          <h3>Detailed journal format adopted</h3>
+          <p><span class="check">Decision:</span> keep this HTML page as the visual dashboard, use dated Markdown files for reproducible implementation detail, and retain HTML for galleries and other visual or interactive reports.</p>
+          <p><strong>Next proposed step:</strong> verify and commit the incremental scanner, review full-gallery responsiveness, then add resumable background OCR indexing.</p>
         </div>
       </article>
     </section>

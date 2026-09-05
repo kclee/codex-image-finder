@@ -14,6 +14,13 @@ The application itself also uses local machine-learning tools for OCR and, in fu
 versions, semantic image search. This is separate from the use of Codex during
 development: the original images remain local and read-only by design.
 
+## Documentation
+
+- [`progress.html`](progress.html) is the concise visual dashboard.
+- [`docs/journal/2026-09-05.md`](docs/journal/2026-09-05.md) records the detailed
+  implementation history, methods, verification, files, and commit subjects.
+- Experiment galleries and benchmarks remain HTML when visual presentation matters.
+
 ## Data rule
 
 > Source images are permanent. Everything else is derived, replaceable, and rebuildable.
@@ -43,6 +50,12 @@ Double-click `start-image-finder.cmd`, or run:
 The current prototype imports the existing 40-image OCR trial into a disposable SQLite
 catalog, then supports subtitle/text filtering, folder filtering, preview, and opening
 the original file. Delete `data\image-finder.sqlite3` to rebuild it.
+
+Use **Add / scan folder…** to discover a complete library. Scanning reads source files
+but never writes below the selected library root. New or changed files receive an exact
+content hash and a derived thumbnail; unchanged files reuse their existing identity and
+thumbnail. A moved or renamed file keeps the same image identity while its previous
+location remains in the database as history.
 
 ## Source control
 

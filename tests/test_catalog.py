@@ -5,6 +5,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from PIL import Image
+
+from image_finder.catalog import Catalog
 from image_finder.database import connect
 
 
@@ -40,6 +43,41 @@ class DatabaseSchemaTests(unittest.TestCase):
                 )
             finally:
                 connection.close()
+
+
+class IncrementalScannerTests(unittest.TestCase):
+    def test_rename_preserves_image_identity_and_location_history(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            library = root / "library"
+            project.mkdir()
+            library.mkdir()
+            original = library / "before.png"
+            Image.new("RGB", (80, 45), "navy").save(original)
+
+            catalog = Catalog(project / "data" / "catalog.sqlite3", project)
+            try:
+                first = catalog.scan_library(library)
+                self.assertEqual(first.discovered, 1)
+                self.assertEqual(first.hashed, 1)
+                original.rename(library / "after.png")
+                second = catalog.scan_library(library)
+
+                self.assertEqual(second.discovered, 1)
+                self.assertEqual(
+                    catalog.connection.execute("SELECT COUNT(*) FROM images").fetchone()[0],
+                    1,
+                )
+                locations = catalog.connection.execute(
+                    "SELECT relative_path, is_present FROM file_locations ORDER BY relative_path"
+                ).fetchall()
+                self.assertEqual(
+                    [(row["relative_path"], row["is_present"]) for row in locations],
+                    [("after.png", 1), ("before.png", 0)],
+                )
+            finally:
+                catalog.close()
 
 
 if __name__ == "__main__":

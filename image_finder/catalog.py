@@ -11,6 +11,7 @@ from pathlib import Path
 
 from .database import connect
 from .domain import SearchResult
+from .scanner import ProgressCallback, ScanSummary, scan_library
 
 
 def _now() -> str:
@@ -28,7 +29,8 @@ def _file_sha256(path: Path) -> str:
 class Catalog:
     def __init__(self, database_path: Path, project_root: Path) -> None:
         self.project_root = project_root.resolve()
-        self.connection = connect(database_path)
+        self.database_path = database_path.resolve()
+        self.connection = connect(self.database_path)
 
     def close(self) -> None:
         self.connection.close()
@@ -160,6 +162,17 @@ class Catalog:
         }
         return sorted(groups, key=str.casefold)
 
+    def library_roots(self) -> list[Path]:
+        rows = self.connection.execute(
+            "SELECT root_path FROM libraries ORDER BY created_at"
+        ).fetchall()
+        return [Path(row["root_path"]) for row in rows]
+
+    def scan_library(
+        self, root: Path, progress: ProgressCallback | None = None
+    ) -> ScanSummary:
+        return scan_library(self.connection, self.project_root, root, progress)
+
     def search(self, query: str = "", group: str | None = None) -> list[SearchResult]:
         clauses = ["fl.is_present = 1"]
         arguments: list[object] = []
@@ -184,8 +197,21 @@ class Catalog:
                    df.relative_path AS thumbnail_path
             FROM images i
             JOIN file_locations fl ON fl.image_id = i.id
-            LEFT JOIN analysis_results ar ON ar.image_id = i.id
-            LEFT JOIN derived_files df ON df.image_id = i.id AND df.kind = 'thumbnail'
+            LEFT JOIN analysis_results ar ON ar.id = (
+                SELECT ar2.id
+                FROM analysis_results ar2
+                JOIN analysis_runs run2 ON run2.id = ar2.run_id
+                WHERE ar2.image_id = i.id
+                ORDER BY COALESCE(run2.completed_at, run2.started_at) DESC, ar2.id DESC
+                LIMIT 1
+            )
+            LEFT JOIN derived_files df ON df.id = (
+                SELECT df2.id
+                FROM derived_files df2
+                WHERE df2.image_id = i.id AND df2.kind = 'thumbnail'
+                ORDER BY (df2.run_id IS NULL) DESC, df2.id DESC
+                LIMIT 1
+            )
             WHERE {' AND '.join(clauses)}
             ORDER BY fl.relative_path COLLATE NOCASE
             """,

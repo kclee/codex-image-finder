@@ -6,7 +6,7 @@ import sqlite3
 from pathlib import Path
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def connect(database_path: Path) -> sqlite3.Connection:
@@ -30,7 +30,8 @@ def migrate(connection: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS libraries (
             id INTEGER PRIMARY KEY,
             root_path TEXT NOT NULL UNIQUE,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            last_scan_completed_at TEXT
         );
 
         CREATE TABLE IF NOT EXISTS images (
@@ -50,6 +51,9 @@ def migrate(connection: sqlite3.Connection) -> None:
             observed_full_path TEXT NOT NULL,
             first_seen_at TEXT NOT NULL,
             last_seen_at TEXT NOT NULL,
+            source_size INTEGER,
+            source_modified_ns INTEGER,
+            last_scan_token TEXT,
             is_present INTEGER NOT NULL DEFAULT 1 CHECK (is_present IN (0, 1)),
             UNIQUE(library_id, relative_path)
         );
@@ -83,6 +87,19 @@ def migrate(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS analysis_results_image_idx
             ON analysis_results(image_id);
 
+        CREATE TABLE IF NOT EXISTS scan_runs (
+            id TEXT PRIMARY KEY,
+            library_id INTEGER NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+            started_at TEXT NOT NULL,
+            completed_at TEXT,
+            status TEXT NOT NULL,
+            discovered_count INTEGER NOT NULL DEFAULT 0,
+            hashed_count INTEGER NOT NULL DEFAULT 0,
+            unchanged_count INTEGER NOT NULL DEFAULT 0,
+            thumbnail_count INTEGER NOT NULL DEFAULT 0,
+            error_count INTEGER NOT NULL DEFAULT 0
+        );
+
         CREATE TABLE IF NOT EXISTS derived_files (
             id INTEGER PRIMARY KEY,
             image_id TEXT NOT NULL REFERENCES images(id) ON DELETE CASCADE,
@@ -95,9 +112,23 @@ def migrate(connection: sqlite3.Connection) -> None:
         );
         """
     )
+    _ensure_column(connection, "libraries", "last_scan_completed_at", "TEXT")
+    _ensure_column(connection, "file_locations", "source_size", "INTEGER")
+    _ensure_column(connection, "file_locations", "source_modified_ns", "INTEGER")
+    _ensure_column(connection, "file_locations", "last_scan_token", "TEXT")
     connection.execute(
         "INSERT INTO metadata(key, value) VALUES('schema_version', ?) "
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         (str(SCHEMA_VERSION),),
     )
     connection.commit()
+
+
+def _ensure_column(
+    connection: sqlite3.Connection, table: str, column: str, declaration: str
+) -> None:
+    existing = {
+        row[1] for row in connection.execute(f"PRAGMA table_info({table})")
+    }
+    if column not in existing:
+        connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {declaration}")
