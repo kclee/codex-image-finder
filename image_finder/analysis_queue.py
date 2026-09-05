@@ -150,11 +150,61 @@ class AnalysisQueue:
     ) -> list[str]:
         """Prepare a bounded batch in caller-visible order, resuming pending work first."""
 
-        if batch_size <= 0:
+        selected, _total = self.preview_ordered_batch(
+            run_id, ordered_image_ids, batch_size
+        )
+        if not selected:
             return []
+        batch_token = _now()
+        inserted = 0
+        self.connection.execute("BEGIN IMMEDIATE")
+        try:
+            for image_id in selected:
+                cursor = self.connection.execute(
+                    """
+                    INSERT OR IGNORE INTO analysis_jobs(
+                        run_id, image_id, status, queued_at
+                    )
+                    SELECT ?, ?, 'pending', ?
+                    WHERE EXISTS (
+                        SELECT 1 FROM file_locations fl
+                        WHERE fl.image_id=? AND fl.is_present=1
+                    )
+                    """,
+                    (run_id, image_id, batch_token, image_id),
+                )
+                inserted += cursor.rowcount
+            placeholders = ",".join("?" for _ in selected)
+            self.connection.execute(
+                f"UPDATE analysis_jobs SET queued_at=? "
+                f"WHERE run_id=? AND status='pending' "
+                f"AND image_id IN ({placeholders})",
+                [batch_token, run_id, *selected],
+            )
+            if inserted:
+                self.connection.execute(
+                    "UPDATE analysis_runs SET completed_at=NULL WHERE id=?", (run_id,)
+                )
+            pending_rows = self.connection.execute(
+                f"SELECT image_id FROM analysis_jobs WHERE run_id=? "
+                f"AND status='pending' AND image_id IN ({placeholders})",
+                [run_id, *selected],
+            )
+            pending_ids = {row["image_id"] for row in pending_rows}
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+        return [image_id for image_id in selected if image_id in pending_ids]
+
+    def preview_ordered_batch(
+        self, run_id: str, ordered_image_ids: list[str], batch_size: int
+    ) -> tuple[list[str], int]:
+        """Return the next batch and total eligible count without changing the queue."""
+
         ordered = list(dict.fromkeys(ordered_image_ids))
         if not ordered:
-            return []
+            return [], 0
 
         statuses: dict[str, str] = {}
         completed: set[str] = set()
@@ -174,52 +224,17 @@ class AnalysisQueue:
             )
             completed.update(row["image_id"] for row in result_rows)
 
-        selected = [
+        pending = [
             image_id for image_id in ordered if statuses.get(image_id) == "pending"
-        ][:batch_size]
-        batch_token = _now()
-        inserted = 0
-        self.connection.execute("BEGIN IMMEDIATE")
-        try:
-            if len(selected) < batch_size:
-                for image_id in ordered:
-                    if len(selected) >= batch_size:
-                        break
-                    if image_id in selected or image_id in completed or image_id in statuses:
-                        continue
-                    cursor = self.connection.execute(
-                        """
-                        INSERT OR IGNORE INTO analysis_jobs(
-                            run_id, image_id, status, queued_at
-                        )
-                        SELECT ?, ?, 'pending', ?
-                        WHERE EXISTS (
-                            SELECT 1 FROM file_locations fl
-                            WHERE fl.image_id=? AND fl.is_present=1
-                        )
-                        """,
-                        (run_id, image_id, batch_token, image_id),
-                    )
-                    if cursor.rowcount:
-                        selected.append(image_id)
-                        inserted += 1
-            if selected:
-                placeholders = ",".join("?" for _ in selected)
-                self.connection.execute(
-                    f"UPDATE analysis_jobs SET queued_at=? "
-                    f"WHERE run_id=? AND status='pending' "
-                    f"AND image_id IN ({placeholders})",
-                    [batch_token, run_id, *selected],
-                )
-            if inserted:
-                self.connection.execute(
-                    "UPDATE analysis_runs SET completed_at=NULL WHERE id=?", (run_id,)
-                )
-            self.connection.commit()
-        except Exception:
-            self.connection.rollback()
-            raise
-        return selected
+        ]
+        untracked = [
+            image_id
+            for image_id in ordered
+            if image_id not in statuses and image_id not in completed
+        ]
+        candidates = pending + untracked
+        limit = max(0, batch_size)
+        return candidates[:limit], len(candidates)
 
     def enqueue_images(self, run_id: str, image_ids: list[str]) -> int:
         if not image_ids:

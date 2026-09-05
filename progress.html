@@ -365,7 +365,10 @@
           <p><span class="check">Completed:</span> added local OpenCC query expansion while preserving raw OCR. A Traditional query “你是在教訓我嗎” successfully found the image whose stored subtitle is Simplified “你是在教训我吗”. All eight tests passed, startup remained 0.46 seconds, and no OCR was run.</p>
           <h3>Automatic scan versus OCR clarified</h3>
           <p><span class="check">Decision:</span> the mature app may run lightweight incremental file discovery automatically in the background. Expensive OCR remains visible and controllable. A future <strong>Next to OCR</strong> preview will clarify both initial import progress and newly added work.</p>
-          <p><strong>Next proposed step:</strong> add the next-to-OCR preview and batch estimates, then define the first-launch/background incremental scanning experience before any larger OCR run.</p>
+          <h3>Next OCR batch made visible</h3>
+          <p><span class="check">Completed:</span> added a horizontally scrollable <strong>Next to OCR</strong> thumbnail strip using the queue's exact read-only candidate calculation. It shows the next ten images, total eligible count, and approximate batch count; updates with the current folder/search view; and stays fixed while its batch runs.</p>
+          <p><span class="check">Verified:</span> the live catalog showed ten upcoming images out of 3,283 eligible stable identities, or about 329 batches. All eight tests passed, startup remained 0.49 seconds, and no OCR or source-image modification occurred.</p>
+          <p><strong>Next proposed step:</strong> define the first-launch/background incremental scanning experience, then exercise pause/resume on a deliberately small batch before any larger OCR run.</p>
         </div>
       </article>
     </section>

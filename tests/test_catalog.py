@@ -179,6 +179,9 @@ class AnalysisQueueTests(unittest.TestCase):
                 prepared = queue.prepare_ordered_batch(run_id, ordered, 5)
                 self.assertEqual(len(prepared), 5)
                 self.assertEqual(queue.counts(run_id)["pending"], 5)
+                preview, total = queue.preview_ordered_batch(run_id, ordered, 5)
+                self.assertEqual(preview, prepared)
+                self.assertEqual(total, 12)
                 claimed = [queue.claim_next(run_id, prepared).image_id for _ in range(5)]
                 self.assertEqual(claimed, prepared)
             finally:

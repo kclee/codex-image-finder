@@ -85,11 +85,15 @@ at query time to try equivalent script forms while preserving the original OCR o
 unchanged. This normalization is part of search, not OCR, so it can be replaced or
 enhanced without reprocessing any images.
 
+The **Next to OCR** thumbnail strip shows the exact upcoming batch for the current view,
+along with the total eligible image count and approximate number of ten-image batches.
+It uses the queue's read-only candidate calculation, so merely viewing it does not create
+jobs. The strip stays fixed while a batch runs and refreshes after completion.
+
 The intended mature startup behavior separates inexpensive discovery from expensive
 analysis: a read-only incremental library scan may run automatically in the background,
-while OCR remains visible, resumable, and user-controlled. A future queue preview will
-show which images are next, which is useful both during initial import and after adding
-new files.
+while OCR remains visible, resumable, and user-controlled. The queue preview is useful
+both during initial import and after adding new files.
 
 ## Source control
 

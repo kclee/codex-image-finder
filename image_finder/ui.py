@@ -36,10 +36,11 @@ from .domain import SearchResult
 class GalleryModel(QAbstractListModel):
     """Virtual gallery model: icons are decoded only when a view requests them."""
 
-    def __init__(self) -> None:
+    def __init__(self, show_filename: bool = False) -> None:
         super().__init__()
         self.results: list[SearchResult] = []
         self.icon_cache: dict[Path, QIcon] = {}
+        self.show_filename = show_filename
 
     def rowCount(self, _parent: QModelIndex = QModelIndex()) -> int:
         return len(self.results)
@@ -49,6 +50,8 @@ class GalleryModel(QAbstractListModel):
             return None
         result = self.results[index.row()]
         if role == Qt.ItemDataRole.DisplayRole:
+            if self.show_filename:
+                return Path(result.relative_path).name
             marker = "✓ " if result.analysis_run_id == MOBILE_SUBTITLE_SPEC.run_id else ""
             return marker + result.display_text
         if role == Qt.ItemDataRole.DecorationRole and result.thumbnail_path.is_file():
@@ -222,6 +225,28 @@ class MainWindow(QMainWindow):
         ocr_layout.addWidget(self.recent_ocr_button)
         ocr_layout.addWidget(self.ocr_status, 1)
 
+        self.ocr_preview_label = QLabel("Next to OCR")
+        self.ocr_preview_model = GalleryModel(show_filename=True)
+        self.ocr_preview = QListView()
+        self.ocr_preview.setModel(self.ocr_preview_model)
+        self.ocr_preview.setViewMode(QListView.ViewMode.IconMode)
+        self.ocr_preview.setFlow(QListView.Flow.LeftToRight)
+        self.ocr_preview.setWrapping(False)
+        self.ocr_preview.setMovement(QListView.Movement.Static)
+        self.ocr_preview.setResizeMode(QListView.ResizeMode.Adjust)
+        self.ocr_preview.setIconSize(QPixmap(112, 63).size())
+        self.ocr_preview.setGridSize(QPixmap(132, 94).size())
+        self.ocr_preview.setFixedHeight(112)
+        self.ocr_preview.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.ocr_preview.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.ocr_preview.setSelectionMode(
+            QAbstractItemView.SelectionMode.NoSelection
+        )
+
         self.folder_tree = QTreeWidget()
         self.folder_tree.setHeaderLabel("Folders")
         all_item = QTreeWidgetItem(["All images"])
@@ -252,6 +277,8 @@ class MainWindow(QMainWindow):
         center_layout = QVBoxLayout(center)
         center_layout.addWidget(search_row)
         center_layout.addWidget(ocr_row)
+        center_layout.addWidget(self.ocr_preview_label)
+        center_layout.addWidget(self.ocr_preview)
         center_layout.addWidget(self.scan_progress)
         center_layout.addWidget(self.count_label)
         center_layout.addWidget(self.gallery, 1)
@@ -378,6 +405,34 @@ class MainWindow(QMainWindow):
             counts["failed"] > 0 and not (self.ocr_thread and self.ocr_thread.isRunning())
         )
 
+    def refresh_ocr_preview(self) -> None:
+        if self.ocr_thread and self.ocr_thread.isRunning():
+            return
+        ordered_results: dict[str, SearchResult] = {}
+        for result in self.gallery_model.results:
+            ordered_results.setdefault(result.image_id, result)
+        queue = AnalysisQueue(self.catalog.connection)
+        preview_ids, total = queue.preview_ordered_batch(
+            MOBILE_SUBTITLE_SPEC.run_id,
+            list(ordered_results),
+            self.ocr_batch_size,
+        )
+        self.ocr_preview_model.replace(
+            [ordered_results[image_id] for image_id in preview_ids]
+        )
+        batches = (total + self.ocr_batch_size - 1) // self.ocr_batch_size
+        if total:
+            self.ocr_preview_label.setText(
+                f"Next to OCR · showing {len(preview_ids)} of {total:,} eligible "
+                f"in this view · about {batches:,} batch{'es' if batches != 1 else ''}"
+            )
+            self.ocr_button.setEnabled(
+                not (self.scan_thread and self.scan_thread.isRunning())
+            )
+        else:
+            self.ocr_preview_label.setText("Next to OCR · no eligible images in this view")
+            self.ocr_button.setEnabled(False)
+
     def start_ocr_batch(self) -> None:
         if self.ocr_thread and self.ocr_thread.isRunning():
             return
@@ -389,6 +444,9 @@ class MainWindow(QMainWindow):
         self.scan_progress.setValue(0)
         self.scan_progress.show()
         self.statusBar().showMessage("Preparing local OCR models…")
+        self.ocr_preview_label.setText(
+            f"Current OCR batch · {self.ocr_preview_model.rowCount()} image(s)"
+        )
 
         self.ocr_thread = QThread(self)
         ordered_image_ids = [result.image_id for result in self.gallery_model.results]
@@ -446,6 +504,7 @@ class MainWindow(QMainWindow):
         self.ocr_button.setEnabled(True)
         self.pause_ocr_button.setEnabled(False)
         self.refresh_ocr_status()
+        self.refresh_ocr_preview()
         self.statusBar().showMessage("OCR worker failed")
         QMessageBox.critical(self, "OCR worker failed", message)
         self.ocr_worker = None
@@ -472,6 +531,7 @@ class MainWindow(QMainWindow):
             results = [result for result in results if result.image_id in recent_ids]
         self.gallery_model.replace(results)
         self.count_label.setText(f"{len(results)} image{'s' if len(results) != 1 else ''}")
+        self.refresh_ocr_preview()
 
     def show_result(self, current: QModelIndex, _previous: QModelIndex) -> None:
         self.current_result = (
