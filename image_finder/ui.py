@@ -268,6 +268,7 @@ class MainWindow(QMainWindow):
         preview_header_layout.addWidget(QLabel("Batch size:"))
         preview_header_layout.addWidget(self.batch_size_selector)
         self.ocr_estimate_label = QLabel()
+        self.ocr_estimate_label.setWordWrap(True)
         self.ocr_preview_model = GalleryModel(show_filename=True)
         self.ocr_preview = QListView()
         self.ocr_preview.setModel(self.ocr_preview_model)
@@ -414,6 +415,7 @@ class MainWindow(QMainWindow):
         self.batch_size_selector.setEnabled(False)
         self.retry_ocr_button.setEnabled(False)
         self.scan_progress.setRange(0, 0)
+        self.scan_progress.setFormat("Scanning library…")
         self.scan_progress.show()
         action = "Checking for new or changed images" if automatic else "Scanning"
         self.statusBar().showMessage(f"{action} · {library_root}")
@@ -538,11 +540,13 @@ class MainWindow(QMainWindow):
                 next_seconds = timing.median_seconds * len(batch_ids)
                 total_seconds = timing.median_seconds * total
                 self.ocr_estimate_label.setText(
-                    f"Measured median {timing.median_seconds:.2f}s/image from "
-                    f"{timing.sample_count} results · next batch ~"
-                    f"{_format_duration(next_seconds)} + model load · remaining ~"
-                    f"{_format_duration(total_seconds)} + about {batches:,} model "
-                    f"load{'s' if batches != 1 else ''}"
+                    f"Typical OCR: {timing.median_seconds:.2f}s/image "
+                    f"(median of {timing.sample_count} completed images)\n"
+                    f"Selected batch: {len(batch_ids)} images · about "
+                    f"{_format_duration(next_seconds)} OCR + one model startup · "
+                    f"Remaining: {total:,} images · about "
+                    f"{_format_duration(total_seconds)} OCR across {batches:,} "
+                    f"batch{'es' if batches != 1 else ''}"
                 )
             else:
                 self.ocr_estimate_label.setText(
@@ -615,6 +619,7 @@ class MainWindow(QMainWindow):
         self.pause_ocr_button.setEnabled(True)
         self.active_ocr_target = len(self.next_ocr_batch_ids)
         self.scan_progress.setRange(0, self.active_ocr_target)
+        self.scan_progress.setFormat("Current batch: %v / %m images (%p%)")
         self.scan_progress.setValue(0)
         self.scan_progress.show()
         self.statusBar().showMessage("Preparing local OCR models…")
@@ -707,7 +712,9 @@ class MainWindow(QMainWindow):
             )
             results = [result for result in results if result.image_id in recent_ids]
         self.gallery_model.replace(results)
-        self.count_label.setText(f"{len(results)} image{'s' if len(results) != 1 else ''}")
+        self.count_label.setText(
+            f"Gallery: {len(results):,} image{'s' if len(results) != 1 else ''}"
+        )
         self.refresh_ocr_preview()
 
     def show_result(self, current: QModelIndex, _previous: QModelIndex) -> None:

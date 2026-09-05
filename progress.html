@@ -380,7 +380,10 @@
           <h3>Larger OCR batches made explicit and controllable</h3>
           <p><span class="check">Completed:</span> added 10, 25, 50, and 100 image batch choices, retaining ten as the default. Preview identities, progress, timing, batch count, and model-load count update before the user starts anything; larger runs still pause after the current image and resume persistently.</p>
           <p><span class="check">Verified:</span> selecting 100 retained exactly 100 next identities while previewing the first ten thumbnails. At the current 1.22-second median, the UI estimates about 2.0 minutes plus one model load for that batch and about 33 model loads for all 3,270 eligible identities, versus about 327 loads using batches of ten. No OCR ran.</p>
-          <p><strong>Next proposed step:</strong> let the user choose when to run the first 25, 50, or 100 image UI batch, then evaluate its OCR quality and actual wall-clock behavior.</p>
+          <h3>OCR status wording clarified and 25-image run evaluated</h3>
+          <p><span class="check">Improved:</span> the progress bar now says <strong>Current batch: 17 / 25 images (68%)</strong>, the gallery count is explicitly labeled, and timing is split into typical per-image OCR, selected-batch inference plus one model startup, and remaining-view inference across a stated number of batches.</p>
+          <p><span class="check">Verified:</span> both latest 25-image groups completed 25/25 with zero failures. The newest used 37.9 seconds of inference; 17 images produced CJK subtitle text, while eight mostly English animation frames retained recognized English in their full-text field. The current 114-result median is 1.22 seconds.</p>
+          <p><strong>Next proposed step:</strong> review whether keeping the OCR engine warm between adjacent batches is worthwhile, then improve drama-subtitle search and result-review tools before semantic/mood analysis.</p>
         </div>
       </article>
     </section>

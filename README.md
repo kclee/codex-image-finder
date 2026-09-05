@@ -106,6 +106,14 @@ remaining current view; model-loading overhead and the estimated number of loads
 called out separately instead of being hidden in the estimate. A larger selected batch
 reuses one model initialization but remains pausable after the current image.
 
+During OCR, the progress bar reports both exact count and percentage, for example
+`Current batch: 17 / 25 images (68%)`. The estimate uses two plain-language lines:
+**Typical OCR** is the median inference time from completed images; **Selected batch**
+and **Remaining** multiply that measurement by the relevant image counts. **One model
+startup** means initializing the already-downloaded Paddle detection and recognition
+models in memory once for that button-triggered batch, not downloading a model or
+loading one model per image. The gallery count is labeled separately from OCR progress.
+
 **OCR history…** shows recent persisted queue groups with total, complete, pending,
 running, failed, skipped, and measured inference-time columns. These summaries use
 existing job timestamps and are operational history rather than a permanent audit log.
