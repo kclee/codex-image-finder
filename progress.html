@@ -371,7 +371,10 @@
           <h3>Known library now checked automatically</h3>
           <p><span class="check">Completed:</span> normal startup now checks the most recently registered library using the existing background incremental scanner, after the window opens. It never starts OCR. No-library and unavailable-folder states remain non-blocking, and diagnostic smoke startup suppresses the scan.</p>
           <p><span class="check">Verified:</span> a real background check discovered all 3,337 locations while hashing zero, reusing 3,337 unchanged records, creating zero thumbnails, and recording zero errors. The scan itself took about 0.55 seconds; all nine tests passed.</p>
-          <p><strong>Next proposed step:</strong> exercise pause/resume on a deliberately small OCR batch, then consider richer batch history and time estimates before any larger OCR run.</p>
+          <h3>Persistent OCR pause/resume verified</h3>
+          <p><span class="check">Completed:</span> ran a bounded three-image check, paused cleanly after the first result with exactly two jobs pending, then restarted with the same selection. The second run queued zero new work and finished only those two pending identities, ending with zero pending, running, or failed jobs.</p>
+          <p><span class="check">Improved:</span> the selected-OCR verifier now supports reproducible <code>--pause-after N</code>, preserves requested path order, resumes existing work, and safely escapes recognized Chinese text for Windows consoles. No original image changed.</p>
+          <p><strong>Next proposed step:</strong> add richer batch history and measured time estimates, then decide when and how aggressively the first larger OCR pass should run.</p>
         </div>
       </article>
     </section>

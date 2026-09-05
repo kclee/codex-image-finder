@@ -68,7 +68,11 @@ stays open with a helpful status message. Diagnostic smoke tests suppress this s
 For controlled development checks, `run_selected_ocr.py` accepts one or more exact
 catalog-relative paths. It queues only those image identities, loads the local
 PP-OCRv5 mobile models on demand, and skips results already completed for the same
-engine/model/pipeline version. Full-library OCR is not started automatically.
+engine/model/pipeline version. Add `--pause-after N` to stop cleanly after N attempts;
+running the same selection again resumes its persisted pending jobs without duplicating
+completed work. Console text is escaped safely so a Windows code-page limitation cannot
+turn a successfully stored Chinese result into a reported OCR failure. Full-library OCR
+is not started automatically.
 
 The desktop action **OCR next 10 in view** prepares and processes at most ten
 outstanding image identities from the currently visible gallery, in its displayed
