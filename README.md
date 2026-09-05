@@ -2,6 +2,18 @@
 
 Local, read-only image discovery and search for a personal screenshot archive.
 
+## Built through human-AI collaboration
+
+This project is being designed and developed collaboratively with OpenAI Codex. The
+project owner defines the goals, constraints, and product decisions and reviews the
+results; Codex assists with exploration, implementation, testing, and documentation.
+AI assistance accelerates the work, while important behavior and generated results
+remain subject to human review.
+
+The application itself also uses local machine-learning tools for OCR and, in future
+versions, semantic image search. This is separate from the use of Codex during
+development: the original images remain local and read-only by design.
+
 ## Data rule
 
 > Source images are permanent. Everything else is derived, replaceable, and rebuildable.
