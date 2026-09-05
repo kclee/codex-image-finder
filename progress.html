@@ -356,7 +356,9 @@
           <p><span class="check">Completed:</span> connected the PP-OCRv5 mobile/lower-frame pipeline to the persistent queue and processed exactly one approved image. It stored the expected subtitle “好想吃冰淇淋哦” at 99.94% confidence in 0.801 seconds; a repeat request queued no work. Full-library OCR remains unqueued.</p>
           <h3>Bounded desktop OCR controls added</h3>
           <p><span class="check">Completed:</span> added explicit OCR-next-10, pause-after-current-image, retry-failed, and queue-progress controls. A temporary 12-image test proved the batch cap, all seven tests passed, startup remained 0.51 seconds, and no additional real image was processed.</p>
-          <p><strong>Next proposed step:</strong> visually review the OCR controls, then deliberately exercise pause/resume on a small real batch before improving per-image analysis inspection.</p>
+          <h3>Completed OCR work made visible</h3>
+          <p><span class="check">Completed:</span> after the user observed that completed batches were difficult to identify, added a persistent last-batch filter, automatic post-batch display, current-pipeline checkmarks, and engine/model/pipeline/completion details in the inspector. The live filter identified exactly the latest ten results without rerunning OCR.</p>
+          <p><strong>Next proposed step:</strong> visually review the clearer batch results, then add per-image analysis history before exercising pause/resume on another small real batch.</p>
         </div>
       </article>
     </section>

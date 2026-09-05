@@ -68,6 +68,11 @@ identities. **Pause OCR** stops after the current image; unfinished jobs remain 
 SQLite for the next run. **Retry failed** explicitly returns failed jobs to the queue.
 Opening the application never starts OCR or prepares the complete library.
 
+After a batch, the gallery automatically switches to **Last OCR batch** so the processed
+images remain visible. A checkmark identifies results from the current OCR pipeline,
+and the inspector reports its engine, model, pipeline version, completion time, and
+confidence. Toggle **Last OCR batch** off to return to the full gallery.
+
 ## Source control
 
 Downloaded models, the virtual environment, derived data, generated thumbnails, and

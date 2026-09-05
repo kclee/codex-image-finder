@@ -48,7 +48,8 @@ class GalleryModel(QAbstractListModel):
             return None
         result = self.results[index.row()]
         if role == Qt.ItemDataRole.DisplayRole:
-            return result.display_text
+            marker = "✓ " if result.analysis_run_id == MOBILE_SUBTITLE_SPEC.run_id else ""
+            return marker + result.display_text
         if role == Qt.ItemDataRole.DecorationRole and result.thumbnail_path.is_file():
             icon = self.icon_cache.get(result.thumbnail_path)
             if icon is None:
@@ -130,6 +131,7 @@ class OcrWorker(QObject):
 
             engine = PaddleSubtitleOcr(self.project_root / "models")
             processed = 0
+            processed_ids: list[str] = []
             while processed < target and not self.pause_requested.is_set():
                 job = queue.claim_next(run_id)
                 if job is None:
@@ -144,16 +146,19 @@ class OcrWorker(QObject):
                         payload=output.payload,
                     )
                     processed += 1
+                    processed_ids.append(job.image_id)
                     self.progress.emit(processed, job.source_path.name)
                 except Exception as error:
                     queue.fail(job, f"{type(error).__name__}: {error}")
                     processed += 1
+                    processed_ids.append(job.image_id)
                     self.progress.emit(processed, f"Failed: {job.source_path.name}")
             self.finished.emit(
                 {
                     "processed": processed,
                     "paused": self.pause_requested.is_set(),
                     "counts": queue.counts(run_id),
+                    "processed_ids": processed_ids,
                 }
             )
         except Exception as error:
@@ -196,6 +201,9 @@ class MainWindow(QMainWindow):
         self.pause_ocr_button.clicked.connect(self.pause_ocr)
         self.retry_ocr_button = QPushButton("Retry failed")
         self.retry_ocr_button.clicked.connect(self.retry_failed_ocr)
+        self.recent_ocr_button = QPushButton("Last OCR batch")
+        self.recent_ocr_button.setCheckable(True)
+        self.recent_ocr_button.toggled.connect(lambda _checked: self.refresh_results())
         self.ocr_status = QLabel()
         ocr_row = QWidget()
         ocr_layout = QHBoxLayout(ocr_row)
@@ -203,6 +211,7 @@ class MainWindow(QMainWindow):
         ocr_layout.addWidget(self.ocr_button)
         ocr_layout.addWidget(self.pause_ocr_button)
         ocr_layout.addWidget(self.retry_ocr_button)
+        ocr_layout.addWidget(self.recent_ocr_button)
         ocr_layout.addWidget(self.ocr_status, 1)
 
         self.folder_tree = QTreeWidget()
@@ -401,6 +410,7 @@ class MainWindow(QMainWindow):
         self.ocr_button.setEnabled(True)
         self.pause_ocr_button.setEnabled(False)
         self.refresh_ocr_status()
+        self.recent_ocr_button.setChecked(True)
         self.refresh_results()
         state = "paused" if summary["paused"] else "complete"
         self.statusBar().showMessage(
@@ -434,6 +444,11 @@ class MainWindow(QMainWindow):
 
     def refresh_results(self) -> None:
         results = self.catalog.search(self.search_box.text(), self.current_group)
+        if self.recent_ocr_button.isChecked():
+            recent_ids = self.catalog.latest_analysis_batch_image_ids(
+                MOBILE_SUBTITLE_SPEC.run_id
+            )
+            results = [result for result in results if result.image_id in recent_ids]
         self.gallery_model.replace(results)
         self.count_label.setText(f"{len(results)} image{'s' if len(results) != 1 else ''}")
 
@@ -466,9 +481,21 @@ class MainWindow(QMainWindow):
             )
         self.subtitle.setText(result.display_text)
         confidence = "—" if result.confidence is None else f"{result.confidence:.1%}"
+        if result.analysis_run_id == MOBILE_SUBTITLE_SPEC.run_id:
+            analysis = (
+                f"Current OCR: complete\n{result.analysis_engine} · {result.analysis_model}\n"
+                f"Pipeline: {result.analysis_pipeline}\nCompleted: {result.analysis_created_at}"
+            )
+        elif result.analysis_run_id:
+            analysis = (
+                f"Earlier analysis: {result.analysis_engine or 'unknown engine'}\n"
+                "Current OCR version: not processed"
+            )
+        else:
+            analysis = "Current OCR version: not processed"
         self.details.setText(
             f"{result.relative_path}\n\n{result.width} × {result.height} · OCR confidence {confidence}\n"
-            f"{result.absolute_path}"
+            f"{analysis}\n\n{result.absolute_path}"
         )
         self.open_button.setEnabled(result.absolute_path.is_file())
 

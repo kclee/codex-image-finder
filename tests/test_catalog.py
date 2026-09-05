@@ -164,6 +164,7 @@ class AnalysisQueueTests(unittest.TestCase):
                 self.assertEqual(queue.counts(run_id)["pending"], 5)
                 self.assertEqual(queue.enqueue_next_missing(run_id, 5), 0)
                 self.assertEqual(queue.counts(run_id)["pending"], 5)
+                self.assertEqual(len(catalog.latest_analysis_batch_image_ids(run_id)), 5)
             finally:
                 catalog.close()
 

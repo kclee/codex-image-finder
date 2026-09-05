@@ -18,6 +18,11 @@ class SearchResult:
     all_text: str
     subtitle_text: str
     confidence: float | None
+    analysis_run_id: str | None
+    analysis_engine: str | None
+    analysis_model: str | None
+    analysis_pipeline: str | None
+    analysis_created_at: str | None
 
     @property
     def display_text(self) -> str:

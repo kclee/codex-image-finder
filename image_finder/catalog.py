@@ -173,6 +173,20 @@ class Catalog:
     ) -> ScanSummary:
         return scan_library(self.connection, self.project_root, root, progress)
 
+    def latest_analysis_batch_image_ids(self, run_id: str) -> set[str]:
+        latest = self.connection.execute(
+            "SELECT queued_at FROM analysis_jobs WHERE run_id=? "
+            "ORDER BY queued_at DESC LIMIT 1",
+            (run_id,),
+        ).fetchone()
+        if latest is None:
+            return set()
+        rows = self.connection.execute(
+            "SELECT image_id FROM analysis_jobs WHERE run_id=? AND queued_at=?",
+            (run_id, latest["queued_at"]),
+        )
+        return {row["image_id"] for row in rows}
+
     def search(self, query: str = "", group: str | None = None) -> list[SearchResult]:
         clauses = ["fl.is_present = 1"]
         arguments: list[object] = []
@@ -194,6 +208,10 @@ class Catalog:
             f"""
             SELECT i.id AS image_id, fl.relative_path, fl.observed_full_path,
                    i.width, i.height, ar.all_text, ar.subtitle_text, ar.confidence,
+                   ar.run_id AS analysis_run_id, ar.created_at AS analysis_created_at,
+                   analysis_run.engine_name AS analysis_engine,
+                   analysis_run.model_name AS analysis_model,
+                   analysis_run.pipeline_version AS analysis_pipeline,
                    df.relative_path AS thumbnail_path
             FROM images i
             JOIN file_locations fl ON fl.image_id = i.id
@@ -205,6 +223,7 @@ class Catalog:
                 ORDER BY COALESCE(run2.completed_at, run2.started_at) DESC, ar2.id DESC
                 LIMIT 1
             )
+            LEFT JOIN analysis_runs analysis_run ON analysis_run.id = ar.run_id
             LEFT JOIN derived_files df ON df.id = (
                 SELECT df2.id
                 FROM derived_files df2
@@ -234,6 +253,11 @@ class Catalog:
                     all_text=row["all_text"] or "",
                     subtitle_text=row["subtitle_text"] or "",
                     confidence=row["confidence"],
+                    analysis_run_id=row["analysis_run_id"],
+                    analysis_engine=row["analysis_engine"],
+                    analysis_model=row["analysis_model"],
+                    analysis_pipeline=row["analysis_pipeline"],
+                    analysis_created_at=row["analysis_created_at"],
                 )
             )
         return results
