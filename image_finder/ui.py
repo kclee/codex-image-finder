@@ -101,12 +101,17 @@ class OcrWorker(QObject):
     failed = Signal(str)
 
     def __init__(
-        self, database_path: Path, project_root: Path, batch_size: int
+        self,
+        database_path: Path,
+        project_root: Path,
+        batch_size: int,
+        ordered_image_ids: list[str],
     ) -> None:
         super().__init__()
         self.database_path = database_path
         self.project_root = project_root
         self.batch_size = batch_size
+        self.ordered_image_ids = ordered_image_ids
         self.pause_requested = threading.Event()
 
     def request_pause(self) -> None:
@@ -119,9 +124,11 @@ class OcrWorker(QObject):
             queue = AnalysisQueue(worker_catalog.connection)
             run_id = queue.ensure_run(MOBILE_SUBTITLE_SPEC)
             queue.recover_interrupted(run_id)
-            queue.enqueue_next_missing(run_id, self.batch_size)
+            batch_ids = queue.prepare_ordered_batch(
+                run_id, self.ordered_image_ids, self.batch_size
+            )
             starting_counts = queue.counts(run_id)
-            target = min(self.batch_size, starting_counts["pending"])
+            target = len(batch_ids)
             if target == 0:
                 self.finished.emit(
                     {"processed": 0, "paused": False, "counts": starting_counts}
@@ -134,7 +141,7 @@ class OcrWorker(QObject):
             processed = 0
             processed_ids: list[str] = []
             while processed < target and not self.pause_requested.is_set():
-                job = queue.claim_next(run_id)
+                job = queue.claim_next(run_id, batch_ids)
                 if job is None:
                     break
                 try:
@@ -195,7 +202,7 @@ class MainWindow(QMainWindow):
         search_layout.addWidget(self.search_box, 1)
         search_layout.addWidget(self.scan_button)
 
-        self.ocr_button = QPushButton(f"OCR next {self.ocr_batch_size}")
+        self.ocr_button = QPushButton(f"OCR next {self.ocr_batch_size} in view")
         self.ocr_button.clicked.connect(self.start_ocr_batch)
         self.pause_ocr_button = QPushButton("Pause OCR")
         self.pause_ocr_button.setEnabled(False)
@@ -384,8 +391,12 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Preparing local OCR models…")
 
         self.ocr_thread = QThread(self)
+        ordered_image_ids = [result.image_id for result in self.gallery_model.results]
         self.ocr_worker = OcrWorker(
-            self.catalog.database_path, self.catalog.project_root, self.ocr_batch_size
+            self.catalog.database_path,
+            self.catalog.project_root,
+            self.ocr_batch_size,
+            ordered_image_ids,
         )
         self.ocr_worker.moveToThread(self.ocr_thread)
         self.ocr_thread.started.connect(self.ocr_worker.run)
@@ -419,10 +430,13 @@ class MainWindow(QMainWindow):
         self.refresh_ocr_status()
         self.recent_ocr_button.setChecked(True)
         self.refresh_results()
-        state = "paused" if summary["paused"] else "complete"
-        self.statusBar().showMessage(
-            f"OCR batch {state} · {summary['processed']} image(s) processed"
-        )
+        if summary["processed"] == 0:
+            self.statusBar().showMessage("No unprocessed images in the current view")
+        else:
+            state = "paused" if summary["paused"] else "complete"
+            self.statusBar().showMessage(
+                f"OCR batch {state} · {summary['processed']} image(s) processed"
+            )
         self.ocr_worker = None
         self.ocr_thread = None
 

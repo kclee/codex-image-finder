@@ -63,8 +63,11 @@ catalog-relative paths. It queues only those image identities, loads the local
 PP-OCRv5 mobile models on demand, and skips results already completed for the same
 engine/model/pipeline version. Full-library OCR is not started automatically.
 
-The desktop action **OCR next 10** prepares and processes at most ten outstanding image
-identities. **Pause OCR** stops after the current image; unfinished jobs remain in
+The desktop action **OCR next 10 in view** prepares and processes at most ten
+outstanding image identities from the currently visible gallery, in its displayed
+path order. Current folder and text filters therefore control the candidates.
+Already-completed identities are skipped and existing pending work in the view is
+resumed first. **Pause OCR** stops after the current image; unfinished jobs remain in
 SQLite for the next run. **Retry failed** explicitly returns failed jobs to the queue.
 Opening the application never starts OCR or prepares the complete library.
 
@@ -76,6 +79,17 @@ confidence. Toggle **Last OCR batch** off to return to the full gallery.
 When an image has results from multiple analysis versions, the inspector provides a
 version selector. Choosing an entry changes the displayed recognized text and metadata
 without deleting or overwriting the other versions.
+
+Search accepts either Traditional or Simplified Chinese. The app uses OpenCC locally
+at query time to try equivalent script forms while preserving the original OCR output
+unchanged. This normalization is part of search, not OCR, so it can be replaced or
+enhanced without reprocessing any images.
+
+The intended mature startup behavior separates inexpensive discovery from expensive
+analysis: a read-only incremental library scan may run automatically in the background,
+while OCR remains visible, resumable, and user-controlled. A future queue preview will
+show which images are next, which is useful both during initial import and after adding
+new files.
 
 ## Source control
 

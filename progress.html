@@ -360,7 +360,12 @@
           <p><span class="check">Completed:</span> after the user observed that completed batches were difficult to identify, added a persistent last-batch filter, automatic post-batch display, current-pipeline checkmarks, and engine/model/pipeline/completion details in the inspector. The live filter identified exactly the latest ten results without rerunning OCR.</p>
           <h3>Per-image analysis history added</h3>
           <p><span class="check">Completed:</span> added a version selector that preserves and displays multiple analysis results for the same image. The approved ice-cream sample now exposes both its server-trial and mobile/lower-frame results independently, with model, pipeline, confidence, timestamp, and text.</p>
-          <p><strong>Next proposed step:</strong> visually review the last-batch filter and analysis history, then exercise pause/resume on a deliberately small batch and add clearer batch estimates before any larger OCR run.</p>
+          <h3>Predictable OCR order and Chinese-equivalent search added</h3>
+          <p><span class="check">Completed:</span> renamed the action to <strong>OCR next 10 in view</strong> and made the current gallery order and filters determine its candidates. Existing pending work resumes first, completed identities are skipped, and the worker cannot drain unrelated jobs.</p>
+          <p><span class="check">Completed:</span> added local OpenCC query expansion while preserving raw OCR. A Traditional query “你是在教訓我嗎” successfully found the image whose stored subtitle is Simplified “你是在教训我吗”. All eight tests passed, startup remained 0.46 seconds, and no OCR was run.</p>
+          <h3>Automatic scan versus OCR clarified</h3>
+          <p><span class="check">Decision:</span> the mature app may run lightweight incremental file discovery automatically in the background. Expensive OCR remains visible and controllable. A future <strong>Next to OCR</strong> preview will clarify both initial import progress and newly added work.</p>
+          <p><strong>Next proposed step:</strong> add the next-to-OCR preview and batch estimates, then define the first-launch/background incremental scanning experience before any larger OCR run.</p>
         </div>
       </article>
     </section>

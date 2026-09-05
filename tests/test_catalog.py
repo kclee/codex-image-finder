@@ -12,6 +12,7 @@ from image_finder.analysis_specs import MOBILE_SUBTITLE_SPEC
 from image_finder.catalog import Catalog
 from image_finder.database import connect
 from image_finder.ocr_engine import _extract_lines
+from image_finder.text_search import query_variants
 
 
 class DatabaseSchemaTests(unittest.TestCase):
@@ -168,7 +169,18 @@ class AnalysisQueueTests(unittest.TestCase):
                 self.assertEqual(queue.counts(run_id)["pending"], 5)
                 self.assertEqual(queue.enqueue_next_missing(run_id, 5), 0)
                 self.assertEqual(queue.counts(run_id)["pending"], 5)
-                self.assertEqual(len(catalog.latest_analysis_batch_image_ids(run_id)), 5)
+                self.assertEqual(len(catalog.latest_analysis_batch_image_ids(run_id)), 0)
+                ordered = list(reversed([
+                    row[0]
+                    for row in catalog.connection.execute(
+                        "SELECT id FROM images ORDER BY id"
+                    )
+                ]))
+                prepared = queue.prepare_ordered_batch(run_id, ordered, 5)
+                self.assertEqual(len(prepared), 5)
+                self.assertEqual(queue.counts(run_id)["pending"], 5)
+                claimed = [queue.claim_next(run_id, prepared).image_id for _ in range(5)]
+                self.assertEqual(claimed, prepared)
             finally:
                 catalog.close()
 
@@ -194,6 +206,12 @@ class OcrExtractionTests(unittest.TestCase):
         }
         lines = _extract_lines(payload, lower_only=True, image_height=100)
         self.assertEqual([line["text"] for line in lines], ["好想吃冰淇淋哦"])
+
+
+class ChineseSearchTests(unittest.TestCase):
+    def test_traditional_query_expands_to_simplified(self) -> None:
+        variants = query_variants("你是在教訓我嗎")
+        self.assertIn("你是在教训我吗", variants)
 
 
 if __name__ == "__main__":

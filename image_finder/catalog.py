@@ -12,6 +12,7 @@ from pathlib import Path
 from .database import connect
 from .domain import AnalysisRecord, SearchResult
 from .scanner import ProgressCallback, ScanSummary, scan_library
+from .text_search import query_variants
 
 
 def _now() -> str:
@@ -176,13 +177,15 @@ class Catalog:
     def latest_analysis_batch_image_ids(self, run_id: str) -> set[str]:
         latest = self.connection.execute(
             "SELECT queued_at FROM analysis_jobs WHERE run_id=? "
+            "AND status IN ('succeeded', 'failed') "
             "ORDER BY queued_at DESC LIMIT 1",
             (run_id,),
         ).fetchone()
         if latest is None:
             return set()
         rows = self.connection.execute(
-            "SELECT image_id FROM analysis_jobs WHERE run_id=? AND queued_at=?",
+            "SELECT image_id FROM analysis_jobs WHERE run_id=? AND queued_at=? "
+            "AND status IN ('succeeded', 'failed')",
             (run_id, latest["queued_at"]),
         )
         return {row["image_id"] for row in rows}
@@ -221,13 +224,17 @@ class Catalog:
     def search(self, query: str = "", group: str | None = None) -> list[SearchResult]:
         clauses = ["fl.is_present = 1"]
         arguments: list[object] = []
-        if query.strip():
-            clauses.append(
-                "(instr(lower(ar.all_text), lower(?)) > 0 "
-                "OR instr(lower(ar.subtitle_text), lower(?)) > 0 "
-                "OR instr(lower(fl.relative_path), lower(?)) > 0)"
-            )
-            arguments.extend([query.strip()] * 3)
+        variants = query_variants(query)
+        if variants:
+            variant_clauses: list[str] = []
+            for variant in variants:
+                variant_clauses.append(
+                    "(instr(lower(ar.all_text), lower(?)) > 0 "
+                    "OR instr(lower(ar.subtitle_text), lower(?)) > 0 "
+                    "OR instr(lower(fl.relative_path), lower(?)) > 0)"
+                )
+                arguments.extend([variant] * 3)
+            clauses.append("(" + " OR ".join(variant_clauses) + ")")
         if group:
             if group == "(archive root)":
                 clauses.append("instr(fl.relative_path, '/') = 0 AND instr(fl.relative_path, '\\') = 0")

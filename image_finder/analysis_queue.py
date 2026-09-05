@@ -145,6 +145,82 @@ class AnalysisQueue:
         self.connection.commit()
         return inserted
 
+    def prepare_ordered_batch(
+        self, run_id: str, ordered_image_ids: list[str], batch_size: int
+    ) -> list[str]:
+        """Prepare a bounded batch in caller-visible order, resuming pending work first."""
+
+        if batch_size <= 0:
+            return []
+        ordered = list(dict.fromkeys(ordered_image_ids))
+        if not ordered:
+            return []
+
+        statuses: dict[str, str] = {}
+        completed: set[str] = set()
+        for offset in range(0, len(ordered), 500):
+            chunk = ordered[offset : offset + 500]
+            placeholders = ",".join("?" for _ in chunk)
+            job_rows = self.connection.execute(
+                f"SELECT image_id, status FROM analysis_jobs "
+                f"WHERE run_id=? AND image_id IN ({placeholders})",
+                [run_id, *chunk],
+            )
+            statuses.update({row["image_id"]: row["status"] for row in job_rows})
+            result_rows = self.connection.execute(
+                f"SELECT image_id FROM analysis_results "
+                f"WHERE run_id=? AND image_id IN ({placeholders})",
+                [run_id, *chunk],
+            )
+            completed.update(row["image_id"] for row in result_rows)
+
+        selected = [
+            image_id for image_id in ordered if statuses.get(image_id) == "pending"
+        ][:batch_size]
+        batch_token = _now()
+        inserted = 0
+        self.connection.execute("BEGIN IMMEDIATE")
+        try:
+            if len(selected) < batch_size:
+                for image_id in ordered:
+                    if len(selected) >= batch_size:
+                        break
+                    if image_id in selected or image_id in completed or image_id in statuses:
+                        continue
+                    cursor = self.connection.execute(
+                        """
+                        INSERT OR IGNORE INTO analysis_jobs(
+                            run_id, image_id, status, queued_at
+                        )
+                        SELECT ?, ?, 'pending', ?
+                        WHERE EXISTS (
+                            SELECT 1 FROM file_locations fl
+                            WHERE fl.image_id=? AND fl.is_present=1
+                        )
+                        """,
+                        (run_id, image_id, batch_token, image_id),
+                    )
+                    if cursor.rowcount:
+                        selected.append(image_id)
+                        inserted += 1
+            if selected:
+                placeholders = ",".join("?" for _ in selected)
+                self.connection.execute(
+                    f"UPDATE analysis_jobs SET queued_at=? "
+                    f"WHERE run_id=? AND status='pending' "
+                    f"AND image_id IN ({placeholders})",
+                    [batch_token, run_id, *selected],
+                )
+            if inserted:
+                self.connection.execute(
+                    "UPDATE analysis_runs SET completed_at=NULL WHERE id=?", (run_id,)
+                )
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+        return selected
+
     def enqueue_images(self, run_id: str, image_ids: list[str]) -> int:
         if not image_ids:
             return 0
@@ -195,6 +271,7 @@ class AnalysisQueue:
         self.connection.execute("BEGIN IMMEDIATE")
         try:
             allowed_clause = ""
+            order_clause = "aj.priority DESC, aj.id"
             arguments: list[object] = [run_id]
             if allowed_image_ids is not None:
                 if not allowed_image_ids:
@@ -202,6 +279,15 @@ class AnalysisQueue:
                     return None
                 placeholders = ",".join("?" for _ in allowed_image_ids)
                 allowed_clause = f" AND aj.image_id IN ({placeholders})"
+                arguments.extend(allowed_image_ids)
+                ordered_cases = " ".join(
+                    f"WHEN ? THEN {position}"
+                    for position in range(len(allowed_image_ids))
+                )
+                order_clause = (
+                    f"aj.priority DESC, CASE aj.image_id {ordered_cases} "
+                    f"ELSE {len(allowed_image_ids)} END, aj.id"
+                )
                 arguments.extend(allowed_image_ids)
             row = self.connection.execute(
                 f"""
@@ -216,7 +302,7 @@ class AnalysisQueue:
                 FROM analysis_jobs aj
                 WHERE aj.run_id=? AND aj.status='pending'
                 {allowed_clause}
-                ORDER BY aj.priority DESC, aj.id
+                ORDER BY {order_clause}
                 LIMIT 1
                 """,
                 arguments,
