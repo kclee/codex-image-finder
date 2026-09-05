@@ -377,7 +377,10 @@
           <h3>Measured timing and recent OCR history added</h3>
           <p><span class="check">Completed:</span> the next-batch panel now uses stored version-matched inference durations to estimate the next ten and all eligible images in the current view. Model-loading overhead is stated separately. A new <strong>OCR history…</strong> dialog summarizes recent queue groups and their complete, pending, running, failed, skipped, and measured-time totals.</p>
           <p><span class="check">Verified:</span> 64 live results produce a 1.22-second median, an approximately 12-second next-ten inference estimate, and approximately 1.1 hours of remaining inference plus model loads. All nine tests passed; no OCR or source-image modification occurred.</p>
-          <p><strong>Next proposed step:</strong> decide when and how aggressively the first larger OCR pass should run, and consider reducing repeated model-loading overhead across adjacent batches.</p>
+          <h3>Larger OCR batches made explicit and controllable</h3>
+          <p><span class="check">Completed:</span> added 10, 25, 50, and 100 image batch choices, retaining ten as the default. Preview identities, progress, timing, batch count, and model-load count update before the user starts anything; larger runs still pause after the current image and resume persistently.</p>
+          <p><span class="check">Verified:</span> selecting 100 retained exactly 100 next identities while previewing the first ten thumbnails. At the current 1.22-second median, the UI estimates about 2.0 minutes plus one model load for that batch and about 33 model loads for all 3,270 eligible identities, versus about 327 loads using batches of ten. No OCR ran.</p>
+          <p><strong>Next proposed step:</strong> let the user choose when to run the first 25, 50, or 100 image UI batch, then evaluate its OCR quality and actual wall-clock behavior.</p>
         </div>
       </article>
     </section>

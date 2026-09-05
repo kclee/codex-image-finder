@@ -74,9 +74,10 @@ completed work. Console text is escaped safely so a Windows code-page limitation
 turn a successfully stored Chinese result into a reported OCR failure. Full-library OCR
 is not started automatically.
 
-The desktop action **OCR next 10 in view** prepares and processes at most ten
-outstanding image identities from the currently visible gallery, in its displayed
-path order. Current folder and text filters therefore control the candidates.
+The desktop batch-size selector offers 10, 25, 50, or 100 images and defaults to the
+conservative value 10. The **OCR next N in view** action prepares and processes at most
+that many outstanding image identities from the currently visible gallery, in its
+displayed path order. Current folder and text filters therefore control the candidates.
 Already-completed identities are skipped and existing pending work in the view is
 resumed first. **Pause OCR** stops after the current image; unfinished jobs remain in
 SQLite for the next run. **Retry failed** explicitly returns failed jobs to the queue.
@@ -96,12 +97,14 @@ at query time to try equivalent script forms while preserving the original OCR o
 unchanged. This normalization is part of search, not OCR, so it can be replaced or
 enhanced without reprocessing any images.
 
-The **Next to OCR** thumbnail strip shows the exact upcoming batch for the current view,
-along with the total eligible image count and approximate number of ten-image batches.
-It uses the queue's read-only candidate calculation, so merely viewing it does not create
-jobs. The strip stays fixed while a batch runs and refreshes after completion. Beneath
-it, measured median inference time estimates the next batch and remaining current view;
-model-loading overhead is called out separately instead of being hidden in the estimate.
+The **Next to OCR** strip previews up to the first ten thumbnails from the exact upcoming
+batch, along with the selected batch count, total eligible count, and approximate number
+of batches. It uses the queue's read-only candidate calculation, so merely viewing it
+does not create jobs. The strip stays fixed while a batch runs and refreshes after
+completion. Beneath it, measured median inference time estimates the selected batch and
+remaining current view; model-loading overhead and the estimated number of loads are
+called out separately instead of being hidden in the estimate. A larger selected batch
+reuses one model initialization but remains pausable after the current image.
 
 **OCR history…** shows recent persisted queue groups with total, complete, pending,
 running, failed, skipped, and measured inference-time columns. These summaries use

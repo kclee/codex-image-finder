@@ -213,6 +213,8 @@ class MainWindow(QMainWindow):
         self.ocr_thread: QThread | None = None
         self.ocr_worker: OcrWorker | None = None
         self.ocr_batch_size = 10
+        self.next_ocr_batch_ids: list[str] = []
+        self.active_ocr_target = 0
         self.setWindowTitle("Image Finder — Prototype")
         self.resize(1280, 780)
 
@@ -253,6 +255,18 @@ class MainWindow(QMainWindow):
         ocr_layout.addWidget(self.ocr_status, 1)
 
         self.ocr_preview_label = QLabel("Next to OCR")
+        self.batch_size_selector = QComboBox()
+        for size in (10, 25, 50, 100):
+            self.batch_size_selector.addItem(str(size), size)
+        self.batch_size_selector.currentIndexChanged.connect(
+            self.change_ocr_batch_size
+        )
+        preview_header = QWidget()
+        preview_header_layout = QHBoxLayout(preview_header)
+        preview_header_layout.setContentsMargins(0, 0, 0, 0)
+        preview_header_layout.addWidget(self.ocr_preview_label, 1)
+        preview_header_layout.addWidget(QLabel("Batch size:"))
+        preview_header_layout.addWidget(self.batch_size_selector)
         self.ocr_estimate_label = QLabel()
         self.ocr_preview_model = GalleryModel(show_filename=True)
         self.ocr_preview = QListView()
@@ -305,7 +319,7 @@ class MainWindow(QMainWindow):
         center_layout = QVBoxLayout(center)
         center_layout.addWidget(search_row)
         center_layout.addWidget(ocr_row)
-        center_layout.addWidget(self.ocr_preview_label)
+        center_layout.addWidget(preview_header)
         center_layout.addWidget(self.ocr_preview)
         center_layout.addWidget(self.ocr_estimate_label)
         center_layout.addWidget(self.scan_progress)
@@ -397,6 +411,7 @@ class MainWindow(QMainWindow):
             "Checking library…" if automatic else "Scanning folder…"
         )
         self.ocr_button.setEnabled(False)
+        self.batch_size_selector.setEnabled(False)
         self.retry_ocr_button.setEnabled(False)
         self.scan_progress.setRange(0, 0)
         self.scan_progress.show()
@@ -426,6 +441,7 @@ class MainWindow(QMainWindow):
         self.scan_button.setEnabled(True)
         self.scan_button.setText("Add / scan folder…")
         self.ocr_button.setEnabled(True)
+        self.batch_size_selector.setEnabled(True)
         self.retry_ocr_button.setEnabled(True)
         self.populate_groups()
         self.refresh_results()
@@ -450,6 +466,7 @@ class MainWindow(QMainWindow):
         self.scan_button.setEnabled(True)
         self.scan_button.setText("Add / scan folder…")
         self.ocr_button.setEnabled(True)
+        self.batch_size_selector.setEnabled(True)
         self.retry_ocr_button.setEnabled(True)
         automatic = self.scan_is_automatic
         self.scan_is_automatic = False
@@ -473,6 +490,14 @@ class MainWindow(QMainWindow):
             counts["failed"] > 0 and not (self.ocr_thread and self.ocr_thread.isRunning())
         )
 
+    def change_ocr_batch_size(self, _index: int) -> None:
+        selected = self.batch_size_selector.currentData()
+        if selected is None:
+            return
+        self.ocr_batch_size = int(selected)
+        self.ocr_button.setText(f"OCR next {self.ocr_batch_size} in view")
+        self.refresh_ocr_preview()
+
     def refresh_ocr_preview(self) -> None:
         if self.ocr_thread and self.ocr_thread.isRunning():
             return
@@ -480,38 +505,51 @@ class MainWindow(QMainWindow):
         for result in self.gallery_model.results:
             ordered_results.setdefault(result.image_id, result)
         queue = AnalysisQueue(self.catalog.connection)
-        preview_ids, total = queue.preview_ordered_batch(
+        batch_ids, total = queue.preview_ordered_batch(
             MOBILE_SUBTITLE_SPEC.run_id,
             list(ordered_results),
             self.ocr_batch_size,
         )
+        self.next_ocr_batch_ids = batch_ids
+        visible_preview_ids = batch_ids[:10]
         self.ocr_preview_model.replace(
-            [ordered_results[image_id] for image_id in preview_ids]
+            [ordered_results[image_id] for image_id in visible_preview_ids]
         )
         batches = (total + self.ocr_batch_size - 1) // self.ocr_batch_size
         timing = self.catalog.analysis_timing(MOBILE_SUBTITLE_SPEC.run_id)
         if total:
+            if len(batch_ids) > len(visible_preview_ids):
+                preview_text = (
+                    f"showing first {len(visible_preview_ids)} thumbnails · "
+                    f"next batch {len(batch_ids)} of {total:,} eligible"
+                )
+            else:
+                preview_text = (
+                    f"showing {len(visible_preview_ids)} of {total:,} eligible"
+                )
             self.ocr_preview_label.setText(
-                f"Next to OCR · showing {len(preview_ids)} of {total:,} eligible "
-                f"in this view · about {batches:,} batch{'es' if batches != 1 else ''}"
+                f"Next to OCR · {preview_text} in this view · about {batches:,} "
+                f"batch{'es' if batches != 1 else ''}"
             )
             self.ocr_button.setEnabled(
                 not (self.scan_thread and self.scan_thread.isRunning())
             )
             if timing:
-                next_seconds = timing.median_seconds * len(preview_ids)
+                next_seconds = timing.median_seconds * len(batch_ids)
                 total_seconds = timing.median_seconds * total
                 self.ocr_estimate_label.setText(
                     f"Measured median {timing.median_seconds:.2f}s/image from "
                     f"{timing.sample_count} results · next batch ~"
                     f"{_format_duration(next_seconds)} + model load · remaining ~"
-                    f"{_format_duration(total_seconds)} + model loads"
+                    f"{_format_duration(total_seconds)} + about {batches:,} model "
+                    f"load{'s' if batches != 1 else ''}"
                 )
             else:
                 self.ocr_estimate_label.setText(
                     "Timing estimate available after the first measured OCR result"
                 )
         else:
+            self.next_ocr_batch_ids = []
             self.ocr_preview_label.setText("Next to OCR · no eligible images in this view")
             self.ocr_estimate_label.setText("No remaining OCR estimate for this view")
             self.ocr_button.setEnabled(False)
@@ -572,14 +610,16 @@ class MainWindow(QMainWindow):
             return
         self.scan_button.setEnabled(False)
         self.ocr_button.setEnabled(False)
+        self.batch_size_selector.setEnabled(False)
         self.retry_ocr_button.setEnabled(False)
         self.pause_ocr_button.setEnabled(True)
-        self.scan_progress.setRange(0, self.ocr_batch_size)
+        self.active_ocr_target = len(self.next_ocr_batch_ids)
+        self.scan_progress.setRange(0, self.active_ocr_target)
         self.scan_progress.setValue(0)
         self.scan_progress.show()
         self.statusBar().showMessage("Preparing local OCR models…")
         self.ocr_preview_label.setText(
-            f"Current OCR batch · {self.ocr_preview_model.rowCount()} image(s)"
+            f"Current OCR batch · {self.active_ocr_target} image(s)"
         )
 
         self.ocr_thread = QThread(self)
@@ -610,7 +650,7 @@ class MainWindow(QMainWindow):
     def update_ocr_progress(self, processed: int, filename: str) -> None:
         self.scan_progress.setValue(processed)
         self.statusBar().showMessage(
-            f"OCR batch {processed}/{self.ocr_batch_size} · {filename}"
+            f"OCR batch {processed}/{self.active_ocr_target} · {filename}"
         )
         self.refresh_ocr_status()
 
@@ -618,6 +658,7 @@ class MainWindow(QMainWindow):
         self.scan_progress.hide()
         self.scan_button.setEnabled(True)
         self.ocr_button.setEnabled(True)
+        self.batch_size_selector.setEnabled(True)
         self.pause_ocr_button.setEnabled(False)
         self.refresh_ocr_status()
         self.recent_ocr_button.setChecked(True)
@@ -631,18 +672,20 @@ class MainWindow(QMainWindow):
             )
         self.ocr_worker = None
         self.ocr_thread = None
+        self.refresh_ocr_preview()
 
     def fail_ocr(self, message: str) -> None:
         self.scan_progress.hide()
         self.scan_button.setEnabled(True)
         self.ocr_button.setEnabled(True)
+        self.batch_size_selector.setEnabled(True)
         self.pause_ocr_button.setEnabled(False)
         self.refresh_ocr_status()
-        self.refresh_ocr_preview()
         self.statusBar().showMessage("OCR worker failed")
         QMessageBox.critical(self, "OCR worker failed", message)
         self.ocr_worker = None
         self.ocr_thread = None
+        self.refresh_ocr_preview()
 
     def retry_failed_ocr(self) -> None:
         queue = AnalysisQueue(self.catalog.connection)
