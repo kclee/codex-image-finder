@@ -58,6 +58,13 @@ content hash and a derived thumbnail; unchanged files reuse their existing ident
 thumbnail. A moved or renamed file keeps the same image identity while its previous
 location remains in the database as history.
 
+On later normal launches, the app automatically checks the most recently registered
+library in a background thread after the window opens. Existing gallery results remain
+usable while discovery runs; OCR controls are temporarily disabled to avoid competing
+analysis. Unchanged files are recognized by stored size and modification time and are
+not rehashed. If no library is registered, or the saved folder is unavailable, the app
+stays open with a helpful status message. Diagnostic smoke tests suppress this scan.
+
 For controlled development checks, `run_selected_ocr.py` accepts one or more exact
 catalog-relative paths. It queues only those image identities, loads the local
 PP-OCRv5 mobile models on demand, and skips results already completed for the same
@@ -90,10 +97,10 @@ along with the total eligible image count and approximate number of ten-image ba
 It uses the queue's read-only candidate calculation, so merely viewing it does not create
 jobs. The strip stays fixed while a batch runs and refreshes after completion.
 
-The intended mature startup behavior separates inexpensive discovery from expensive
-analysis: a read-only incremental library scan may run automatically in the background,
-while OCR remains visible, resumable, and user-controlled. The queue preview is useful
-both during initial import and after adding new files.
+Startup deliberately separates inexpensive discovery from expensive analysis: the
+read-only incremental library check runs automatically in the background, while OCR
+remains visible, resumable, and user-controlled. The queue preview is useful both during
+initial import and after adding new files.
 
 ## Source control
 

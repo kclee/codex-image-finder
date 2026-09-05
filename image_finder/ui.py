@@ -5,7 +5,17 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from PySide6.QtCore import QAbstractListModel, QModelIndex, QObject, QThread, Qt, QUrl, Signal, Slot
+from PySide6.QtCore import (
+    QAbstractListModel,
+    QModelIndex,
+    QObject,
+    QThread,
+    QTimer,
+    Qt,
+    QUrl,
+    Signal,
+    Slot,
+)
 from PySide6.QtGui import QDesktopServices, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -179,13 +189,14 @@ class OcrWorker(QObject):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, catalog: Catalog) -> None:
+    def __init__(self, catalog: Catalog, auto_scan: bool = False) -> None:
         super().__init__()
         self.catalog = catalog
         self.current_group: str | None = None
         self.current_result: SearchResult | None = None
         self.scan_thread: QThread | None = None
         self.scan_worker: ScanWorker | None = None
+        self.scan_is_automatic = False
         self.ocr_thread: QThread | None = None
         self.ocr_worker: OcrWorker | None = None
         self.ocr_batch_size = 10
@@ -324,6 +335,8 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Source images are read-only; displayed data is rebuildable.")
         self.refresh_results()
         self.refresh_ocr_status()
+        if auto_scan:
+            QTimer.singleShot(0, self.start_startup_scan)
 
     def populate_groups(self) -> None:
         while self.folder_tree.topLevelItemCount() > 1:
@@ -342,15 +355,35 @@ class MainWindow(QMainWindow):
         if selected:
             self.start_scan(Path(selected))
 
-    def start_scan(self, library_root: Path) -> None:
+    def start_startup_scan(self) -> None:
+        roots = self.catalog.library_roots()
+        if not roots:
+            self.statusBar().showMessage(
+                "No image library selected yet · use Add / scan folder…"
+            )
+            return
+        library_root = roots[-1]
+        if not library_root.is_dir():
+            self.statusBar().showMessage(
+                f"Saved image library is unavailable · {library_root}"
+            )
+            return
+        self.start_scan(library_root, automatic=True)
+
+    def start_scan(self, library_root: Path, automatic: bool = False) -> None:
         if self.scan_thread and self.scan_thread.isRunning():
             return
+        self.scan_is_automatic = automatic
         self.scan_button.setEnabled(False)
+        self.scan_button.setText(
+            "Checking library…" if automatic else "Scanning folder…"
+        )
         self.ocr_button.setEnabled(False)
         self.retry_ocr_button.setEnabled(False)
         self.scan_progress.setRange(0, 0)
         self.scan_progress.show()
-        self.statusBar().showMessage(f"Scanning {library_root}…")
+        action = "Checking for new or changed images" if automatic else "Scanning"
+        self.statusBar().showMessage(f"{action} · {library_root}")
 
         self.scan_thread = QThread(self)
         self.scan_worker = ScanWorker(
@@ -373,27 +406,44 @@ class MainWindow(QMainWindow):
     def finish_scan(self, summary: object) -> None:
         self.scan_progress.hide()
         self.scan_button.setEnabled(True)
+        self.scan_button.setText("Add / scan folder…")
         self.ocr_button.setEnabled(True)
         self.retry_ocr_button.setEnabled(True)
         self.populate_groups()
         self.refresh_results()
-        self.statusBar().showMessage(
-            f"Scan complete · {summary.discovered:,} images · "
-            f"{summary.hashed:,} hashed · {summary.unchanged:,} unchanged · "
-            f"{summary.errors:,} errors"
+        prefix = (
+            "Background library check complete"
+            if self.scan_is_automatic
+            else "Scan complete"
         )
+        self.statusBar().showMessage(
+            f"{prefix} · {summary.discovered:,} images · "
+            f"{summary.hashed:,} hashed · {summary.unchanged:,} unchanged · "
+            f"{summary.missing_marked:,} missing · {summary.errors:,} errors"
+        )
+        self.scan_is_automatic = False
         self.scan_worker = None
         self.scan_thread = None
+        self.refresh_ocr_status()
+        self.refresh_ocr_preview()
 
     def fail_scan(self, message: str) -> None:
         self.scan_progress.hide()
         self.scan_button.setEnabled(True)
+        self.scan_button.setText("Add / scan folder…")
         self.ocr_button.setEnabled(True)
         self.retry_ocr_button.setEnabled(True)
-        self.statusBar().showMessage("Scan failed")
-        QMessageBox.critical(self, "Scan failed", message)
+        automatic = self.scan_is_automatic
+        self.scan_is_automatic = False
+        if automatic:
+            self.statusBar().showMessage(f"Background library check failed · {message}")
+        else:
+            self.statusBar().showMessage("Scan failed")
+            QMessageBox.critical(self, "Scan failed", message)
         self.scan_worker = None
         self.scan_thread = None
+        self.refresh_ocr_status()
+        self.refresh_ocr_preview()
 
     def refresh_ocr_status(self) -> None:
         counts = AnalysisQueue(self.catalog.connection).counts(MOBILE_SUBTITLE_SPEC.run_id)
@@ -619,10 +669,8 @@ class MainWindow(QMainWindow):
 def run(catalog: Catalog, smoke_test: bool = False) -> int:
     app = QApplication.instance() or QApplication([])
     app.setApplicationName("Image Finder")
-    window = MainWindow(catalog)
+    window = MainWindow(catalog, auto_scan=not smoke_test)
     window.show()
     if smoke_test:
-        from PySide6.QtCore import QTimer
-
         QTimer.singleShot(250, app.quit)
     return app.exec()

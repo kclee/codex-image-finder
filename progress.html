@@ -368,7 +368,10 @@
           <h3>Next OCR batch made visible</h3>
           <p><span class="check">Completed:</span> added a horizontally scrollable <strong>Next to OCR</strong> thumbnail strip using the queue's exact read-only candidate calculation. It shows the next ten images, total eligible count, and approximate batch count; updates with the current folder/search view; and stays fixed while its batch runs.</p>
           <p><span class="check">Verified:</span> the live catalog showed ten upcoming images out of 3,283 eligible stable identities, or about 329 batches. All eight tests passed, startup remained 0.49 seconds, and no OCR or source-image modification occurred.</p>
-          <p><strong>Next proposed step:</strong> define the first-launch/background incremental scanning experience, then exercise pause/resume on a deliberately small batch before any larger OCR run.</p>
+          <h3>Known library now checked automatically</h3>
+          <p><span class="check">Completed:</span> normal startup now checks the most recently registered library using the existing background incremental scanner, after the window opens. It never starts OCR. No-library and unavailable-folder states remain non-blocking, and diagnostic smoke startup suppresses the scan.</p>
+          <p><span class="check">Verified:</span> a real background check discovered all 3,337 locations while hashing zero, reusing 3,337 unchanged records, creating zero thumbnails, and recording zero errors. The scan itself took about 0.55 seconds; all nine tests passed.</p>
+          <p><strong>Next proposed step:</strong> exercise pause/resume on a deliberately small OCR batch, then consider richer batch history and time estimates before any larger OCR run.</p>
         </div>
       </article>
     </section>

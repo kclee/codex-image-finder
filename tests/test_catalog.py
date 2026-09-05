@@ -50,6 +50,27 @@ class DatabaseSchemaTests(unittest.TestCase):
 
 
 class IncrementalScannerTests(unittest.TestCase):
+    def test_unchanged_rescan_reuses_identity_without_hashing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            library = root / "library"
+            project.mkdir()
+            library.mkdir()
+            Image.new("RGB", (80, 45), "purple").save(library / "unchanged.png")
+
+            catalog = Catalog(project / "data" / "catalog.sqlite3", project)
+            try:
+                first = catalog.scan_library(library)
+                second = catalog.scan_library(library)
+                self.assertEqual(first.hashed, 1)
+                self.assertEqual(second.discovered, 1)
+                self.assertEqual(second.hashed, 0)
+                self.assertEqual(second.unchanged, 1)
+                self.assertEqual(second.thumbnails_created, 0)
+            finally:
+                catalog.close()
+
     def test_rename_preserves_image_identity_and_location_history(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
