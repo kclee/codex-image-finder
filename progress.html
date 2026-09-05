@@ -358,7 +358,9 @@
           <p><span class="check">Completed:</span> added explicit OCR-next-10, pause-after-current-image, retry-failed, and queue-progress controls. A temporary 12-image test proved the batch cap, all seven tests passed, startup remained 0.51 seconds, and no additional real image was processed.</p>
           <h3>Completed OCR work made visible</h3>
           <p><span class="check">Completed:</span> after the user observed that completed batches were difficult to identify, added a persistent last-batch filter, automatic post-batch display, current-pipeline checkmarks, and engine/model/pipeline/completion details in the inspector. The live filter identified exactly the latest ten results without rerunning OCR.</p>
-          <p><strong>Next proposed step:</strong> visually review the clearer batch results, then add per-image analysis history before exercising pause/resume on another small real batch.</p>
+          <h3>Per-image analysis history added</h3>
+          <p><span class="check">Completed:</span> added a version selector that preserves and displays multiple analysis results for the same image. The approved ice-cream sample now exposes both its server-trial and mobile/lower-frame results independently, with model, pipeline, confidence, timestamp, and text.</p>
+          <p><strong>Next proposed step:</strong> visually review the last-batch filter and analysis history, then exercise pause/resume on a deliberately small batch and add clearer batch estimates before any larger OCR run.</p>
         </div>
       </article>
     </section>

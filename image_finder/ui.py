@@ -10,6 +10,7 @@ from PySide6.QtGui import QDesktopServices, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -256,6 +257,10 @@ class MainWindow(QMainWindow):
         self.subtitle = QLabel()
         self.subtitle.setWordWrap(True)
         self.subtitle.setStyleSheet("font-size: 18px; font-weight: 600;")
+        self.analysis_selector = QComboBox()
+        self.analysis_selector.currentIndexChanged.connect(self.show_analysis_version)
+        self.analysis_details = QLabel()
+        self.analysis_details.setWordWrap(True)
         self.details = QLabel()
         self.details.setWordWrap(True)
         self.details.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -267,6 +272,8 @@ class MainWindow(QMainWindow):
         right_layout = QVBoxLayout(right)
         right_layout.addWidget(self.preview, 1)
         right_layout.addWidget(self.subtitle)
+        right_layout.addWidget(self.analysis_selector)
+        right_layout.addWidget(self.analysis_details)
         right_layout.addWidget(self.details)
         right_layout.addWidget(self.open_button)
 
@@ -463,6 +470,8 @@ class MainWindow(QMainWindow):
             self.preview.setText("Select an image")
             self.preview.setPixmap(QPixmap())
             self.subtitle.clear()
+            self.analysis_selector.clear()
+            self.analysis_details.clear()
             self.details.clear()
             self.open_button.setEnabled(False)
             return
@@ -479,25 +488,47 @@ class MainWindow(QMainWindow):
                     Qt.TransformationMode.SmoothTransformation,
                 )
             )
-        self.subtitle.setText(result.display_text)
-        confidence = "—" if result.confidence is None else f"{result.confidence:.1%}"
-        if result.analysis_run_id == MOBILE_SUBTITLE_SPEC.run_id:
-            analysis = (
-                f"Current OCR: complete\n{result.analysis_engine} · {result.analysis_model}\n"
-                f"Pipeline: {result.analysis_pipeline}\nCompleted: {result.analysis_created_at}"
-            )
-        elif result.analysis_run_id:
-            analysis = (
-                f"Earlier analysis: {result.analysis_engine or 'unknown engine'}\n"
-                "Current OCR version: not processed"
-            )
-        else:
-            analysis = "Current OCR version: not processed"
         self.details.setText(
-            f"{result.relative_path}\n\n{result.width} × {result.height} · OCR confidence {confidence}\n"
-            f"{analysis}\n\n{result.absolute_path}"
+            f"{result.relative_path}\n\n{result.width} × {result.height}\n\n"
+            f"{result.absolute_path}"
         )
+        history = self.catalog.analysis_history(result.image_id)
+        self.analysis_selector.blockSignals(True)
+        self.analysis_selector.clear()
+        for record in history:
+            status = (
+                "Current OCR"
+                if record.run_id == MOBILE_SUBTITLE_SPEC.run_id
+                else "Earlier analysis"
+            )
+            self.analysis_selector.addItem(
+                f"{status} · {record.engine_name} · {record.created_at[:10]}", record
+            )
+        if not history:
+            self.analysis_selector.addItem("No analysis yet", None)
+        self.analysis_selector.blockSignals(False)
+        self.analysis_selector.setCurrentIndex(0)
+        self.show_analysis_version(0)
         self.open_button.setEnabled(result.absolute_path.is_file())
+
+    def show_analysis_version(self, index: int) -> None:
+        record = self.analysis_selector.itemData(index) if index >= 0 else None
+        if record is None:
+            self.subtitle.setText("(No recognized text)")
+            self.analysis_details.setText("Current OCR version: not processed")
+            return
+        self.subtitle.setText(record.display_text)
+        confidence = "—" if record.confidence is None else f"{record.confidence:.1%}"
+        current = (
+            "Current OCR version"
+            if record.run_id == MOBILE_SUBTITLE_SPEC.run_id
+            else "Earlier analysis version"
+        )
+        self.analysis_details.setText(
+            f"{current} · confidence {confidence}\n"
+            f"{record.engine_name} {record.engine_version} · {record.model_name}\n"
+            f"Pipeline: {record.pipeline_version}\nCompleted: {record.created_at}"
+        )
 
     def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
         super().resizeEvent(event)

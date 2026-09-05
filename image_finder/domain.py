@@ -27,3 +27,22 @@ class SearchResult:
     @property
     def display_text(self) -> str:
         return self.subtitle_text or self.all_text or "(No recognized text)"
+
+
+@dataclass(frozen=True, slots=True)
+class AnalysisRecord:
+    run_id: str
+    analysis_type: str
+    engine_name: str
+    engine_version: str
+    model_name: str
+    model_version: str
+    pipeline_version: str
+    created_at: str
+    all_text: str
+    subtitle_text: str
+    confidence: float | None
+
+    @property
+    def display_text(self) -> str:
+        return self.subtitle_text or self.all_text or "(No recognized text)"

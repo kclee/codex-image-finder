@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .database import connect
-from .domain import SearchResult
+from .domain import AnalysisRecord, SearchResult
 from .scanner import ProgressCallback, ScanSummary, scan_library
 
 
@@ -186,6 +186,37 @@ class Catalog:
             (run_id, latest["queued_at"]),
         )
         return {row["image_id"] for row in rows}
+
+    def analysis_history(self, image_id: str) -> list[AnalysisRecord]:
+        rows = self.connection.execute(
+            """
+            SELECT ar.run_id, ar.all_text, ar.subtitle_text, ar.confidence,
+                   ar.created_at, run.analysis_type, run.engine_name,
+                   run.engine_version, run.model_name, run.model_version,
+                   run.pipeline_version
+            FROM analysis_results ar
+            JOIN analysis_runs run ON run.id=ar.run_id
+            WHERE ar.image_id=?
+            ORDER BY ar.created_at DESC, ar.id DESC
+            """,
+            (image_id,),
+        ).fetchall()
+        return [
+            AnalysisRecord(
+                run_id=row["run_id"],
+                analysis_type=row["analysis_type"],
+                engine_name=row["engine_name"],
+                engine_version=row["engine_version"],
+                model_name=row["model_name"],
+                model_version=row["model_version"],
+                pipeline_version=row["pipeline_version"],
+                created_at=row["created_at"],
+                all_text=row["all_text"] or "",
+                subtitle_text=row["subtitle_text"] or "",
+                confidence=row["confidence"],
+            )
+            for row in rows
+        ]
 
     def search(self, query: str = "", group: str | None = None) -> list[SearchResult]:
         clauses = ["fl.is_present = 1"]

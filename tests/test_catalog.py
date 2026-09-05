@@ -141,6 +141,10 @@ class AnalysisQueueTests(unittest.TestCase):
                 )
                 self.assertEqual(queue.counts(run_id)["succeeded"], 1)
                 self.assertEqual(queue.enqueue_missing(run_id), 0)
+                history = catalog.analysis_history(resumed.image_id)
+                self.assertEqual(len(history), 1)
+                self.assertEqual(history[0].pipeline_version, "lower-crop-v1")
+                self.assertEqual(history[0].subtitle_text, "測試")
             finally:
                 catalog.close()
 

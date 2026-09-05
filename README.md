@@ -73,6 +73,10 @@ images remain visible. A checkmark identifies results from the current OCR pipel
 and the inspector reports its engine, model, pipeline version, completion time, and
 confidence. Toggle **Last OCR batch** off to return to the full gallery.
 
+When an image has results from multiple analysis versions, the inspector provides a
+version selector. Choosing an entry changes the displayed recognized text and metadata
+without deleting or overwriting the other versions.
+
 ## Source control
 
 Downloaded models, the virtual environment, derived data, generated thumbnails, and
