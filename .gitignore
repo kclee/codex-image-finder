@@ -1,0 +1,30 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Downloaded models and rebuildable application data
+models/
+data/
+*.sqlite
+*.sqlite3
+*.db
+
+# Generated OCR artifacts and thumbnails
+results/thumbnails/
+
+# Packaging output
+build/
+dist/
+*.spec
+
+# Local configuration and logs
+config.local.json
+*.log
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
