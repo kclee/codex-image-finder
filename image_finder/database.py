@@ -6,7 +6,7 @@ import sqlite3
 from pathlib import Path
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def connect(database_path: Path) -> sqlite3.Connection:
@@ -86,6 +86,24 @@ def migrate(connection: sqlite3.Connection) -> None:
         );
         CREATE INDEX IF NOT EXISTS analysis_results_image_idx
             ON analysis_results(image_id);
+
+        CREATE TABLE IF NOT EXISTS analysis_jobs (
+            id INTEGER PRIMARY KEY,
+            run_id TEXT NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
+            image_id TEXT NOT NULL REFERENCES images(id) ON DELETE CASCADE,
+            status TEXT NOT NULL CHECK (
+                status IN ('pending', 'running', 'succeeded', 'failed', 'skipped')
+            ),
+            priority INTEGER NOT NULL DEFAULT 0,
+            attempt_count INTEGER NOT NULL DEFAULT 0,
+            queued_at TEXT NOT NULL,
+            started_at TEXT,
+            completed_at TEXT,
+            last_error TEXT,
+            UNIQUE(run_id, image_id)
+        );
+        CREATE INDEX IF NOT EXISTS analysis_jobs_run_status_idx
+            ON analysis_jobs(run_id, status, priority DESC, id);
 
         CREATE TABLE IF NOT EXISTS scan_runs (
             id TEXT PRIMARY KEY,

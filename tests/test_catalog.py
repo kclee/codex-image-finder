@@ -7,6 +7,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from image_finder.analysis_queue import AnalysisQueue, AnalysisSpec
 from image_finder.catalog import Catalog
 from image_finder.database import connect
 
@@ -94,6 +95,52 @@ class FullCatalogSearchTests(unittest.TestCase):
             self.assertEqual(len(catalog.search()), present)
         finally:
             catalog.close()
+
+
+class AnalysisQueueTests(unittest.TestCase):
+    def test_queue_is_versioned_persistent_and_resumable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            library = root / "library"
+            project.mkdir()
+            library.mkdir()
+            Image.new("RGB", (80, 45), "teal").save(library / "one.png")
+            Image.new("RGB", (80, 45), "orange").save(library / "two.png")
+
+            catalog = Catalog(project / "data" / "catalog.sqlite3", project)
+            try:
+                catalog.scan_library(library)
+                queue = AnalysisQueue(catalog.connection)
+                spec = AnalysisSpec(
+                    analysis_type="ocr",
+                    engine_name="fake-ocr",
+                    engine_version="1.0",
+                    model_name="fake-mobile",
+                    model_version="1",
+                    pipeline_version="lower-crop-v1",
+                    parameters={"crop_start": 0.45},
+                )
+                run_id = queue.ensure_run(spec)
+                self.assertEqual(queue.enqueue_missing(run_id), 2)
+                first = queue.claim_next(run_id)
+                self.assertIsNotNone(first)
+                self.assertEqual(queue.counts(run_id)["running"], 1)
+
+                self.assertEqual(queue.recover_interrupted(run_id), 1)
+                resumed = queue.claim_next(run_id)
+                self.assertEqual(resumed.image_id, first.image_id)
+                queue.complete(
+                    resumed,
+                    all_text="測試",
+                    subtitle_text="測試",
+                    confidence=0.9,
+                    payload={"source": "unit-test"},
+                )
+                self.assertEqual(queue.counts(run_id)["succeeded"], 1)
+                self.assertEqual(queue.enqueue_missing(run_id), 0)
+            finally:
+                catalog.close()
 
 
 if __name__ == "__main__":

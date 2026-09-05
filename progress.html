@@ -350,7 +350,9 @@
           <p><span class="check">Decision:</span> keep this HTML page as the visual dashboard, use dated Markdown files for reproducible implementation detail, and retain HTML for galleries and other visual or interactive reports.</p>
           <h3>Full-gallery startup optimized</h3>
           <p><span class="check">Completed:</span> replaced thousands of eager thumbnail widgets with a model-backed gallery that supplies and caches icons on demand. The full-catalog smoke test improved from 16.23 seconds to 0.52 seconds while all automated tests passed.</p>
-          <p><strong>Next proposed step:</strong> visually verify the model-backed full gallery, then add resumable background OCR indexing.</p>
+          <h3>Persistent analysis queue verified</h3>
+          <p><span class="check">Completed:</span> added version-specific pending/running/succeeded/failed/skipped jobs, transactional job claims, interruption recovery, retry support, and completed-result deduplication. A two-image temporary test proved pause/resume behavior without processing or queuing the real library. Normal startup no longer imports the 40-image trial.</p>
+          <p><strong>Next proposed step:</strong> connect the benchmarked PP-OCRv5 mobile/lower-frame adapter and validate it through the queue on a very small approved sample before adding desktop OCR controls.</p>
         </div>
       </article>
     </section>

@@ -16,7 +16,6 @@ def main() -> int:
     project_root = Path(__file__).resolve().parent.parent
     catalog = Catalog(project_root / "data" / "image-finder.sqlite3", project_root)
     try:
-        catalog.import_ocr_trial(project_root / "results" / "ocr_trial.json")
         from .ui import run
 
         return run(catalog, smoke_test=args.smoke_test)

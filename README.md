@@ -48,8 +48,9 @@ Double-click `start-image-finder.cmd`, or run:
 ```
 
 The current prototype imports the existing 40-image OCR trial into a disposable SQLite
-catalog, then supports subtitle/text filtering, folder filtering, preview, and opening
-the original file. Delete `data\image-finder.sqlite3` to rebuild it.
+catalog during development, then supports subtitle/text filtering, folder filtering,
+preview, and opening the original file. Normal application startup now opens the existing
+catalog without importing trial data. Delete `data\image-finder.sqlite3` to rebuild it.
 
 Use **Add / scan folder…** to discover a complete library. Scanning reads source files
 but never writes below the selected library root. New or changed files receive an exact
