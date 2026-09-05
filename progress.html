@@ -348,7 +348,9 @@
           <p><span class="check">Completed:</span> added stable content identity, location history, scan-run records, derived thumbnails, and a background desktop scanning adapter. The first pass discovered and hashed all 3,337 files with 3,334 unique image identities and zero errors. An immediate second pass reused all 3,337 unchanged records without hashing or regenerating thumbnails.</p>
           <h3>Detailed journal format adopted</h3>
           <p><span class="check">Decision:</span> keep this HTML page as the visual dashboard, use dated Markdown files for reproducible implementation detail, and retain HTML for galleries and other visual or interactive reports.</p>
-          <p><strong>Next proposed step:</strong> verify and commit the incremental scanner, review full-gallery responsiveness, then add resumable background OCR indexing.</p>
+          <h3>Full-gallery startup optimized</h3>
+          <p><span class="check">Completed:</span> replaced thousands of eager thumbnail widgets with a model-backed gallery that supplies and caches icons on demand. The full-catalog smoke test improved from 16.23 seconds to 0.52 seconds while all automated tests passed.</p>
+          <p><strong>Next proposed step:</strong> visually verify the model-backed full gallery, then add resumable background OCR indexing.</p>
         </div>
       </article>
     </section>

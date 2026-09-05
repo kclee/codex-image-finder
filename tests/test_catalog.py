@@ -80,5 +80,21 @@ class IncrementalScannerTests(unittest.TestCase):
                 catalog.close()
 
 
+class FullCatalogSearchTests(unittest.TestCase):
+    def test_search_returns_each_current_location_once(self) -> None:
+        project = Path(__file__).resolve().parent.parent
+        database = project / "data" / "image-finder.sqlite3"
+        if not database.exists():
+            self.skipTest("full disposable catalog has not been built")
+        catalog = Catalog(database, project)
+        try:
+            present = catalog.connection.execute(
+                "SELECT COUNT(*) FROM file_locations WHERE is_present = 1"
+            ).fetchone()[0]
+            self.assertEqual(len(catalog.search()), present)
+        finally:
+            catalog.close()
+
+
 if __name__ == "__main__":
     unittest.main()

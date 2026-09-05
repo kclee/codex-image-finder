@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QThread, Qt, QUrl, Signal, Slot
+from PySide6.QtCore import QAbstractListModel, QModelIndex, QObject, QThread, Qt, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -13,8 +13,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
+    QListView,
     QMainWindow,
     QMessageBox,
     QProgressBar,
@@ -28,6 +27,41 @@ from PySide6.QtWidgets import (
 
 from .catalog import Catalog
 from .domain import SearchResult
+
+
+class GalleryModel(QAbstractListModel):
+    """Virtual gallery model: icons are decoded only when a view requests them."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.results: list[SearchResult] = []
+        self.icon_cache: dict[Path, QIcon] = {}
+
+    def rowCount(self, _parent: QModelIndex = QModelIndex()) -> int:
+        return len(self.results)
+
+    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):  # type: ignore[no-untyped-def]
+        if not index.isValid() or not 0 <= index.row() < len(self.results):
+            return None
+        result = self.results[index.row()]
+        if role == Qt.ItemDataRole.DisplayRole:
+            return result.display_text
+        if role == Qt.ItemDataRole.DecorationRole and result.thumbnail_path.is_file():
+            icon = self.icon_cache.get(result.thumbnail_path)
+            if icon is None:
+                icon = QIcon(str(result.thumbnail_path))
+                self.icon_cache[result.thumbnail_path] = icon
+            return icon
+        if role == Qt.ItemDataRole.ToolTipRole:
+            return result.relative_path
+        if role == Qt.ItemDataRole.UserRole:
+            return result
+        return None
+
+    def replace(self, results: list[SearchResult]) -> None:
+        self.beginResetModel()
+        self.results = results
+        self.endResetModel()
 
 
 class ScanWorker(QObject):
@@ -89,15 +123,18 @@ class MainWindow(QMainWindow):
         self.folder_tree.setCurrentItem(all_item)
         self.folder_tree.currentItemChanged.connect(self.change_group)
 
-        self.gallery = QListWidget()
-        self.gallery.setViewMode(QListWidget.ViewMode.IconMode)
-        self.gallery.setResizeMode(QListWidget.ResizeMode.Adjust)
-        self.gallery.setMovement(QListWidget.Movement.Static)
+        self.gallery_model = GalleryModel()
+        self.gallery = QListView()
+        self.gallery.setModel(self.gallery_model)
+        self.gallery.setViewMode(QListView.ViewMode.IconMode)
+        self.gallery.setResizeMode(QListView.ResizeMode.Adjust)
+        self.gallery.setMovement(QListView.Movement.Static)
         self.gallery.setIconSize(QPixmap(220, 124).size())
         self.gallery.setGridSize(QPixmap(250, 176).size())
         self.gallery.setWordWrap(True)
+        self.gallery.setUniformItemSizes(True)
         self.gallery.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.gallery.currentItemChanged.connect(self.show_result)
+        self.gallery.selectionModel().currentChanged.connect(self.show_result)
 
         self.count_label = QLabel()
         self.scan_progress = QProgressBar()
@@ -214,18 +251,15 @@ class MainWindow(QMainWindow):
 
     def refresh_results(self) -> None:
         results = self.catalog.search(self.search_box.text(), self.current_group)
-        self.gallery.clear()
-        for result in results:
-            item = QListWidgetItem(result.display_text)
-            if result.thumbnail_path.is_file():
-                item.setIcon(QIcon(str(result.thumbnail_path)))
-            item.setData(Qt.ItemDataRole.UserRole, result)
-            item.setToolTip(result.relative_path)
-            self.gallery.addItem(item)
+        self.gallery_model.replace(results)
         self.count_label.setText(f"{len(results)} image{'s' if len(results) != 1 else ''}")
 
-    def show_result(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
-        self.current_result = current.data(Qt.ItemDataRole.UserRole) if current else None
+    def show_result(self, current: QModelIndex, _previous: QModelIndex) -> None:
+        self.current_result = (
+            self.gallery_model.data(current, Qt.ItemDataRole.UserRole)
+            if current.isValid()
+            else None
+        )
         result = self.current_result
         if result is None:
             self.preview.setText("Select an image")
@@ -258,9 +292,9 @@ class MainWindow(QMainWindow):
     def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
         super().resizeEvent(event)
         if self.current_result:
-            current = self.gallery.currentItem()
-            if current:
-                self.show_result(current, None)
+            current = self.gallery.currentIndex()
+            if current.isValid():
+                self.show_result(current, QModelIndex())
 
     def open_original(self) -> None:
         if self.current_result and self.current_result.absolute_path.is_file():
