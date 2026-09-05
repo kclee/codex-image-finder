@@ -103,6 +103,33 @@ class AnalysisQueue:
         self.connection.commit()
         return inserted
 
+    def enqueue_images(self, run_id: str, image_ids: list[str]) -> int:
+        if not image_ids:
+            return 0
+        before = self.connection.total_changes
+        queued_at = _now()
+        self.connection.executemany(
+            """
+            INSERT OR IGNORE INTO analysis_jobs(run_id, image_id, status, queued_at)
+            SELECT ?, ?, 'pending', ?
+            WHERE EXISTS (
+                SELECT 1 FROM file_locations fl
+                WHERE fl.image_id=? AND fl.is_present=1
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM analysis_results ar
+                WHERE ar.run_id=? AND ar.image_id=?
+            )
+            """,
+            [
+                (run_id, image_id, queued_at, image_id, run_id, image_id)
+                for image_id in image_ids
+            ],
+        )
+        inserted = self.connection.total_changes - before
+        self.connection.commit()
+        return inserted
+
     def recover_interrupted(self, run_id: str) -> int:
         cursor = self.connection.execute(
             """
@@ -116,11 +143,22 @@ class AnalysisQueue:
         self.connection.commit()
         return cursor.rowcount
 
-    def claim_next(self, run_id: str) -> AnalysisJob | None:
+    def claim_next(
+        self, run_id: str, allowed_image_ids: list[str] | None = None
+    ) -> AnalysisJob | None:
         self.connection.execute("BEGIN IMMEDIATE")
         try:
+            allowed_clause = ""
+            arguments: list[object] = [run_id]
+            if allowed_image_ids is not None:
+                if not allowed_image_ids:
+                    self.connection.commit()
+                    return None
+                placeholders = ",".join("?" for _ in allowed_image_ids)
+                allowed_clause = f" AND aj.image_id IN ({placeholders})"
+                arguments.extend(allowed_image_ids)
             row = self.connection.execute(
-                """
+                f"""
                 SELECT aj.id, aj.run_id, aj.image_id, aj.attempt_count,
                        (
                            SELECT fl.observed_full_path
@@ -131,10 +169,11 @@ class AnalysisQueue:
                        ) AS source_path
                 FROM analysis_jobs aj
                 WHERE aj.run_id=? AND aj.status='pending'
+                {allowed_clause}
                 ORDER BY aj.priority DESC, aj.id
                 LIMIT 1
                 """,
-                (run_id,),
+                arguments,
             ).fetchone()
             if row is None:
                 self.connection.commit()
@@ -146,7 +185,7 @@ class AnalysisQueue:
                     (_now(), row["id"]),
                 )
                 self.connection.commit()
-                return self.claim_next(run_id)
+                return self.claim_next(run_id, allowed_image_ids)
             self.connection.execute(
                 """
                 UPDATE analysis_jobs

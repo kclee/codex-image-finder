@@ -10,6 +10,7 @@ from PIL import Image
 from image_finder.analysis_queue import AnalysisQueue, AnalysisSpec
 from image_finder.catalog import Catalog
 from image_finder.database import connect
+from image_finder.ocr_engine import MOBILE_SUBTITLE_SPEC, _extract_lines
 
 
 class DatabaseSchemaTests(unittest.TestCase):
@@ -141,6 +142,29 @@ class AnalysisQueueTests(unittest.TestCase):
                 self.assertEqual(queue.enqueue_missing(run_id), 0)
             finally:
                 catalog.close()
+
+    def test_analysis_version_changes_when_pipeline_changes(self) -> None:
+        changed = AnalysisSpec(
+            analysis_type=MOBILE_SUBTITLE_SPEC.analysis_type,
+            engine_name=MOBILE_SUBTITLE_SPEC.engine_name,
+            engine_version=MOBILE_SUBTITLE_SPEC.engine_version,
+            model_name=MOBILE_SUBTITLE_SPEC.model_name,
+            model_version=MOBILE_SUBTITLE_SPEC.model_version,
+            pipeline_version="different-pipeline",
+            parameters=MOBILE_SUBTITLE_SPEC.parameters,
+        )
+        self.assertNotEqual(changed.run_id, MOBILE_SUBTITLE_SPEC.run_id)
+
+
+class OcrExtractionTests(unittest.TestCase):
+    def test_extract_lines_filters_confidence_and_upper_region(self) -> None:
+        payload = {
+            "rec_texts": ["上方", "好想吃冰淇淋哦", "low confidence"],
+            "rec_scores": [0.9, 0.95, 0.2],
+            "rec_boxes": [[0, 5, 30, 15], [0, 60, 100, 80], [0, 70, 50, 90]],
+        }
+        lines = _extract_lines(payload, lower_only=True, image_height=100)
+        self.assertEqual([line["text"] for line in lines], ["好想吃冰淇淋哦"])
 
 
 if __name__ == "__main__":

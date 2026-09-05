@@ -352,7 +352,9 @@
           <p><span class="check">Completed:</span> replaced thousands of eager thumbnail widgets with a model-backed gallery that supplies and caches icons on demand. The full-catalog smoke test improved from 16.23 seconds to 0.52 seconds while all automated tests passed.</p>
           <h3>Persistent analysis queue verified</h3>
           <p><span class="check">Completed:</span> added version-specific pending/running/succeeded/failed/skipped jobs, transactional job claims, interruption recovery, retry support, and completed-result deduplication. A two-image temporary test proved pause/resume behavior without processing or queuing the real library. Normal startup no longer imports the 40-image trial.</p>
-          <p><strong>Next proposed step:</strong> connect the benchmarked PP-OCRv5 mobile/lower-frame adapter and validate it through the queue on a very small approved sample before adding desktop OCR controls.</p>
+          <h3>Versioned OCR adapter validated</h3>
+          <p><span class="check">Completed:</span> connected the PP-OCRv5 mobile/lower-frame pipeline to the persistent queue and processed exactly one approved image. It stored the expected subtitle “好想吃冰淇淋哦” at 99.94% confidence in 0.801 seconds; a repeat request queued no work. Full-library OCR remains unqueued.</p>
+          <p><strong>Next proposed step:</strong> add explicit desktop controls for bounded OCR batches, pause/resume, retry, and progress inspection before offering an unrestricted run.</p>
         </div>
       </article>
     </section>

@@ -58,6 +58,11 @@ content hash and a derived thumbnail; unchanged files reuse their existing ident
 thumbnail. A moved or renamed file keeps the same image identity while its previous
 location remains in the database as history.
 
+For controlled development checks, `run_selected_ocr.py` accepts one or more exact
+catalog-relative paths. It queues only those image identities, loads the local
+PP-OCRv5 mobile models on demand, and skips results already completed for the same
+engine/model/pipeline version. Full-library OCR is not started automatically.
+
 ## Source control
 
 Downloaded models, the virtual environment, derived data, generated thumbnails, and
