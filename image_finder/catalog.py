@@ -5,12 +5,13 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+import statistics
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .database import connect
-from .domain import AnalysisRecord, SearchResult
+from .domain import AnalysisBatchSummary, AnalysisRecord, AnalysisTiming, SearchResult
 from .scanner import ProgressCallback, ScanSummary, scan_library
 from .text_search import query_variants
 
@@ -189,6 +190,77 @@ class Catalog:
             (run_id, latest["queued_at"]),
         )
         return {row["image_id"] for row in rows}
+
+    def analysis_timing(self, run_id: str) -> AnalysisTiming | None:
+        rows = self.connection.execute(
+            "SELECT payload_json FROM analysis_results WHERE run_id=?",
+            (run_id,),
+        )
+        elapsed: list[float] = []
+        for row in rows:
+            try:
+                value = float(json.loads(row["payload_json"]).get("elapsed_seconds"))
+            except (AttributeError, TypeError, ValueError, json.JSONDecodeError):
+                continue
+            if value > 0:
+                elapsed.append(value)
+        if not elapsed:
+            return None
+        return AnalysisTiming(
+            sample_count=len(elapsed),
+            median_seconds=statistics.median(elapsed),
+            mean_seconds=statistics.mean(elapsed),
+        )
+
+    def analysis_batch_summaries(
+        self, run_id: str, limit: int = 8
+    ) -> list[AnalysisBatchSummary]:
+        if limit <= 0:
+            return []
+        rows = self.connection.execute(
+            """
+            SELECT aj.queued_at, aj.status, ar.payload_json
+            FROM analysis_jobs aj
+            LEFT JOIN analysis_results ar
+                ON ar.run_id=aj.run_id AND ar.image_id=aj.image_id
+            WHERE aj.run_id=?
+            ORDER BY aj.queued_at DESC, aj.id
+            """,
+            (run_id,),
+        )
+        grouped: dict[str, dict[str, object]] = {}
+        for row in rows:
+            queued_at = row["queued_at"]
+            if queued_at not in grouped:
+                if len(grouped) >= limit:
+                    break
+                grouped[queued_at] = {
+                    "total": 0,
+                    "succeeded": 0,
+                    "pending": 0,
+                    "running": 0,
+                    "failed": 0,
+                    "skipped": 0,
+                    "inference_seconds": 0.0,
+                }
+            values = grouped[queued_at]
+            values["total"] = int(values["total"]) + 1
+            status = row["status"]
+            values[status] = int(values[status]) + 1
+            if row["payload_json"]:
+                try:
+                    elapsed = float(
+                        json.loads(row["payload_json"]).get("elapsed_seconds") or 0
+                    )
+                except (AttributeError, TypeError, ValueError, json.JSONDecodeError):
+                    elapsed = 0
+                values["inference_seconds"] = (
+                    float(values["inference_seconds"]) + max(0, elapsed)
+                )
+        return [
+            AnalysisBatchSummary(queued_at=queued_at, **values)  # type: ignore[arg-type]
+            for queued_at, values in grouped.items()
+        ]
 
     def analysis_history(self, image_id: str) -> list[AnalysisRecord]:
         rows = self.connection.execute(

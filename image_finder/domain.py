@@ -46,3 +46,22 @@ class AnalysisRecord:
     @property
     def display_text(self) -> str:
         return self.subtitle_text or self.all_text or "(No recognized text)"
+
+
+@dataclass(frozen=True, slots=True)
+class AnalysisTiming:
+    sample_count: int
+    median_seconds: float
+    mean_seconds: float
+
+
+@dataclass(frozen=True, slots=True)
+class AnalysisBatchSummary:
+    queued_at: str
+    total: int
+    succeeded: int
+    pending: int
+    running: int
+    failed: int
+    skipped: int
+    inference_seconds: float

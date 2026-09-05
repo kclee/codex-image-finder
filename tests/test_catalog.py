@@ -159,7 +159,7 @@ class AnalysisQueueTests(unittest.TestCase):
                     all_text="測試",
                     subtitle_text="測試",
                     confidence=0.9,
-                    payload={"source": "unit-test"},
+                    payload={"source": "unit-test", "elapsed_seconds": 1.25},
                 )
                 self.assertEqual(queue.counts(run_id)["succeeded"], 1)
                 self.assertEqual(queue.enqueue_missing(run_id), 0)
@@ -167,6 +167,16 @@ class AnalysisQueueTests(unittest.TestCase):
                 self.assertEqual(len(history), 1)
                 self.assertEqual(history[0].pipeline_version, "lower-crop-v1")
                 self.assertEqual(history[0].subtitle_text, "測試")
+                timing = catalog.analysis_timing(run_id)
+                self.assertIsNotNone(timing)
+                self.assertEqual(timing.sample_count, 1)
+                self.assertEqual(timing.median_seconds, 1.25)
+                batches = catalog.analysis_batch_summaries(run_id)
+                self.assertEqual(len(batches), 1)
+                self.assertEqual(batches[0].total, 2)
+                self.assertEqual(batches[0].succeeded, 1)
+                self.assertEqual(batches[0].pending, 1)
+                self.assertEqual(batches[0].inference_seconds, 1.25)
             finally:
                 catalog.close()
 

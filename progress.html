@@ -374,7 +374,10 @@
           <h3>Persistent OCR pause/resume verified</h3>
           <p><span class="check">Completed:</span> ran a bounded three-image check, paused cleanly after the first result with exactly two jobs pending, then restarted with the same selection. The second run queued zero new work and finished only those two pending identities, ending with zero pending, running, or failed jobs.</p>
           <p><span class="check">Improved:</span> the selected-OCR verifier now supports reproducible <code>--pause-after N</code>, preserves requested path order, resumes existing work, and safely escapes recognized Chinese text for Windows consoles. No original image changed.</p>
-          <p><strong>Next proposed step:</strong> add richer batch history and measured time estimates, then decide when and how aggressively the first larger OCR pass should run.</p>
+          <h3>Measured timing and recent OCR history added</h3>
+          <p><span class="check">Completed:</span> the next-batch panel now uses stored version-matched inference durations to estimate the next ten and all eligible images in the current view. Model-loading overhead is stated separately. A new <strong>OCR history…</strong> dialog summarizes recent queue groups and their complete, pending, running, failed, skipped, and measured-time totals.</p>
+          <p><span class="check">Verified:</span> 64 live results produce a 1.22-second median, an approximately 12-second next-ten inference estimate, and approximately 1.1 hours of remaining inference plus model loads. All nine tests passed; no OCR or source-image modification occurred.</p>
+          <p><strong>Next proposed step:</strong> decide when and how aggressively the first larger OCR pass should run, and consider reducing repeated model-loading overhead across adjacent batches.</p>
         </div>
       </article>
     </section>

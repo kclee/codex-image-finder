@@ -99,7 +99,13 @@ enhanced without reprocessing any images.
 The **Next to OCR** thumbnail strip shows the exact upcoming batch for the current view,
 along with the total eligible image count and approximate number of ten-image batches.
 It uses the queue's read-only candidate calculation, so merely viewing it does not create
-jobs. The strip stays fixed while a batch runs and refreshes after completion.
+jobs. The strip stays fixed while a batch runs and refreshes after completion. Beneath
+it, measured median inference time estimates the next batch and remaining current view;
+model-loading overhead is called out separately instead of being hidden in the estimate.
+
+**OCR history…** shows recent persisted queue groups with total, complete, pending,
+running, failed, skipped, and measured inference-time columns. These summaries use
+existing job timestamps and are operational history rather than a permanent audit log.
 
 Startup deliberately separates inexpensive discovery from expensive analysis: the
 read-only incremental library check runs automatically in the background, while OCR

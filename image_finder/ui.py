@@ -21,7 +21,10 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QFileDialog,
+    QHeaderView,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -31,6 +34,8 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -41,6 +46,14 @@ from .analysis_queue import AnalysisQueue
 from .analysis_specs import MOBILE_SUBTITLE_SPEC
 from .catalog import Catalog
 from .domain import SearchResult
+
+
+def _format_duration(seconds: float) -> str:
+    if seconds < 60:
+        return f"{max(1, round(seconds))}s"
+    if seconds < 3600:
+        return f"{seconds / 60:.1f}m"
+    return f"{seconds / 3600:.1f}h"
 
 
 class GalleryModel(QAbstractListModel):
@@ -226,6 +239,8 @@ class MainWindow(QMainWindow):
         self.recent_ocr_button = QPushButton("Last OCR batch")
         self.recent_ocr_button.setCheckable(True)
         self.recent_ocr_button.toggled.connect(lambda _checked: self.refresh_results())
+        self.ocr_history_button = QPushButton("OCR history…")
+        self.ocr_history_button.clicked.connect(self.show_ocr_history)
         self.ocr_status = QLabel()
         ocr_row = QWidget()
         ocr_layout = QHBoxLayout(ocr_row)
@@ -234,9 +249,11 @@ class MainWindow(QMainWindow):
         ocr_layout.addWidget(self.pause_ocr_button)
         ocr_layout.addWidget(self.retry_ocr_button)
         ocr_layout.addWidget(self.recent_ocr_button)
+        ocr_layout.addWidget(self.ocr_history_button)
         ocr_layout.addWidget(self.ocr_status, 1)
 
         self.ocr_preview_label = QLabel("Next to OCR")
+        self.ocr_estimate_label = QLabel()
         self.ocr_preview_model = GalleryModel(show_filename=True)
         self.ocr_preview = QListView()
         self.ocr_preview.setModel(self.ocr_preview_model)
@@ -290,6 +307,7 @@ class MainWindow(QMainWindow):
         center_layout.addWidget(ocr_row)
         center_layout.addWidget(self.ocr_preview_label)
         center_layout.addWidget(self.ocr_preview)
+        center_layout.addWidget(self.ocr_estimate_label)
         center_layout.addWidget(self.scan_progress)
         center_layout.addWidget(self.count_label)
         center_layout.addWidget(self.gallery, 1)
@@ -471,6 +489,7 @@ class MainWindow(QMainWindow):
             [ordered_results[image_id] for image_id in preview_ids]
         )
         batches = (total + self.ocr_batch_size - 1) // self.ocr_batch_size
+        timing = self.catalog.analysis_timing(MOBILE_SUBTITLE_SPEC.run_id)
         if total:
             self.ocr_preview_label.setText(
                 f"Next to OCR · showing {len(preview_ids)} of {total:,} eligible "
@@ -479,9 +498,74 @@ class MainWindow(QMainWindow):
             self.ocr_button.setEnabled(
                 not (self.scan_thread and self.scan_thread.isRunning())
             )
+            if timing:
+                next_seconds = timing.median_seconds * len(preview_ids)
+                total_seconds = timing.median_seconds * total
+                self.ocr_estimate_label.setText(
+                    f"Measured median {timing.median_seconds:.2f}s/image from "
+                    f"{timing.sample_count} results · next batch ~"
+                    f"{_format_duration(next_seconds)} + model load · remaining ~"
+                    f"{_format_duration(total_seconds)} + model loads"
+                )
+            else:
+                self.ocr_estimate_label.setText(
+                    "Timing estimate available after the first measured OCR result"
+                )
         else:
             self.ocr_preview_label.setText("Next to OCR · no eligible images in this view")
+            self.ocr_estimate_label.setText("No remaining OCR estimate for this view")
             self.ocr_button.setEnabled(False)
+
+    def show_ocr_history(self) -> None:
+        summaries = self.catalog.analysis_batch_summaries(
+            MOBILE_SUBTITLE_SPEC.run_id, limit=12
+        )
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Recent OCR batches")
+        dialog.resize(820, 390)
+        layout = QVBoxLayout(dialog)
+        note = QLabel(
+            "Recent persisted queue groups. OCR time is measured inference only and "
+            "does not include model loading."
+        )
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        table = QTableWidget(len(summaries), 8)
+        table.setHorizontalHeaderLabels(
+            [
+                "Queued",
+                "Total",
+                "Complete",
+                "Pending",
+                "Running",
+                "Failed",
+                "Skipped",
+                "OCR time",
+            ]
+        )
+        for row_index, summary in enumerate(summaries):
+            values = [
+                summary.queued_at[:19].replace("T", " "),
+                str(summary.total),
+                str(summary.succeeded),
+                str(summary.pending),
+                str(summary.running),
+                str(summary.failed),
+                str(summary.skipped),
+                _format_duration(summary.inference_seconds)
+                if summary.inference_seconds
+                else "—",
+            ]
+            for column, value in enumerate(values):
+                table.setItem(row_index, column, QTableWidgetItem(value))
+        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        layout.addWidget(table)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        dialog.exec()
 
     def start_ocr_batch(self) -> None:
         if self.ocr_thread and self.ocr_thread.isRunning():
