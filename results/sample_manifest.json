@@ -1,0 +1,408 @@
+{
+  "created_at": "2026-09-05T04:36:45.669916-05:00",
+  "archive_root": "C:\\Users\\kckck\\Desktop\\Output",
+  "method": "Deterministic round-robin across top-level folders; rare orientations and formats forced into sample.",
+  "sample_size": 40,
+  "items": [
+    {
+      "relative_path": "Game/2017/03/04/2017030418214500-F1C11A22FAEE3B82F21B330E1B786A39.jpg",
+      "group": "Game",
+      "extension": ".jpg",
+      "width": 1280,
+      "height": 720,
+      "orientation": "landscape",
+      "bytes": 171544,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Game\\2017\\03\\04\\2017030418214500-F1C11A22FAEE3B82F21B330E1B786A39.jpg"
+    },
+    {
+      "relative_path": "capture-20250714-001647.png",
+      "group": "(archive root)",
+      "extension": ".png",
+      "width": 1179,
+      "height": 655,
+      "orientation": "landscape",
+      "bytes": 824387,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\capture-20250714-001647.png"
+    },
+    {
+      "relative_path": "Japan_2018/capture-20170513-213636.png",
+      "group": "Japan_2018",
+      "extension": ".png",
+      "width": 1585,
+      "height": 874,
+      "orientation": "landscape",
+      "bytes": 1379487,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Japan_2018\\capture-20170513-213636.png"
+    },
+    {
+      "relative_path": "Japan_2021/vlcsnap-2021-04-10-23h05m02s920.jpg",
+      "group": "Japan_2021",
+      "extension": ".jpg",
+      "width": 1280,
+      "height": 720,
+      "orientation": "landscape",
+      "bytes": 210644,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Japan_2021\\vlcsnap-2021-04-10-23h05m02s920.jpg"
+    },
+    {
+      "relative_path": "Anime/capture-20190929-132108.png",
+      "group": "Anime",
+      "extension": ".png",
+      "width": 1375,
+      "height": 646,
+      "orientation": "landscape",
+      "bytes": 1932022,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Anime\\capture-20190929-132108.png"
+    },
+    {
+      "relative_path": "Random/xmas.gif",
+      "group": "Random",
+      "extension": ".gif",
+      "width": 400,
+      "height": 216,
+      "orientation": "landscape",
+      "bytes": 735335,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Random\\xmas.gif"
+    },
+    {
+      "relative_path": "Japan_2022/capture-20221203-235406.png",
+      "group": "Japan_2022",
+      "extension": ".png",
+      "width": 1290,
+      "height": 591,
+      "orientation": "landscape",
+      "bytes": 1352440,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Japan_2022\\capture-20221203-235406.png"
+    },
+    {
+      "relative_path": "CN/capture-20190901-190209.png",
+      "group": "CN",
+      "extension": ".png",
+      "width": 1000,
+      "height": 553,
+      "orientation": "landscape",
+      "bytes": 1000115,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\CN\\capture-20190901-190209.png"
+    },
+    {
+      "relative_path": "Japan_2020/capture-20200610-195651.png",
+      "group": "Japan_2020",
+      "extension": ".png",
+      "width": 1173,
+      "height": 661,
+      "orientation": "landscape",
+      "bytes": 1468769,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Japan_2020\\capture-20200610-195651.png"
+    },
+    {
+      "relative_path": "Japan_2023/capture-20230910-134932.png",
+      "group": "Japan_2023",
+      "extension": ".png",
+      "width": 1147,
+      "height": 644,
+      "orientation": "landscape",
+      "bytes": 1105148,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Japan_2023\\capture-20230910-134932.png"
+    },
+    {
+      "relative_path": "Normal/bahamut.jpg",
+      "group": "Normal",
+      "extension": ".jpg",
+      "width": 288,
+      "height": 272,
+      "orientation": "landscape",
+      "bytes": 48035,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Normal\\bahamut.jpg"
+    },
+    {
+      "relative_path": "Japan_2019/capture-20190421-165123.png",
+      "group": "Japan_2019",
+      "extension": ".png",
+      "width": 1881,
+      "height": 1039,
+      "orientation": "landscape",
+      "bytes": 2069092,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Japan_2019\\capture-20190421-165123.png"
+    },
+    {
+      "relative_path": "Kor/capture-20160504-202220.png",
+      "group": "Kor",
+      "extension": ".png",
+      "width": 1248,
+      "height": 874,
+      "orientation": "landscape",
+      "bytes": 1195816,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Kor\\capture-20160504-202220.png"
+    },
+    {
+      "relative_path": "output/capture-20190202-203839_020.png",
+      "group": "output",
+      "extension": ".png",
+      "width": 204,
+      "height": 185,
+      "orientation": "landscape",
+      "bytes": 6717,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\output\\capture-20190202-203839_020.png"
+    },
+    {
+      "relative_path": "US/capture-20151225-112628-vert.jpg",
+      "group": "US",
+      "extension": ".jpg",
+      "width": 1342,
+      "height": 1421,
+      "orientation": "portrait",
+      "bytes": 1543634,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\US\\capture-20151225-112628-vert.jpg"
+    },
+    {
+      "relative_path": "Sticker貼圖/capture-20220602-171520.png",
+      "group": "Sticker貼圖",
+      "extension": ".png",
+      "width": 199,
+      "height": 162,
+      "orientation": "landscape",
+      "bytes": 18423,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Sticker貼圖\\capture-20220602-171520.png"
+    },
+    {
+      "relative_path": "Originals/capture-20220529-230459.png",
+      "group": "Originals",
+      "extension": ".png",
+      "width": 210,
+      "height": 201,
+      "orientation": "landscape",
+      "bytes": 42275,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Originals\\capture-20220529-230459.png"
+    },
+    {
+      "relative_path": "Tamagotchi/IQRIntV.png",
+      "group": "Tamagotchi",
+      "extension": ".png",
+      "width": 1949,
+      "height": 1291,
+      "orientation": "landscape",
+      "bytes": 897407,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Tamagotchi\\IQRIntV.png"
+    },
+    {
+      "relative_path": "Manga/Graphic/Title.bmp",
+      "group": "Manga",
+      "extension": ".bmp",
+      "width": 564,
+      "height": 390,
+      "orientation": "landscape",
+      "bytes": 659936,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Manga\\Graphic\\Title.bmp"
+    },
+    {
+      "relative_path": "Gif_Animation/20220610_1.gif",
+      "group": "Gif_Animation",
+      "extension": ".gif",
+      "width": 347,
+      "height": 412,
+      "orientation": "portrait",
+      "bytes": 2015840,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Gif_Animation\\20220610_1.gif"
+    },
+    {
+      "relative_path": "嗶哩嗶哩bilibili影片下載工具/Download/Video/2020_11_21「王様のブランチこの時季行きたい温泉ランキング▽イモトアヤコに直撃！」山田菜々-2020_11_21/2020_11_21「王様のブランチこの時季行きたい温泉ランキング▽イモトアヤコに直撃！」山田菜々-2020_11_21.jpg",
+      "group": "嗶哩嗶哩bilibili影片下載工具",
+      "extension": ".jpg",
+      "width": 1440,
+      "height": 900,
+      "orientation": "landscape",
+      "bytes": 226119,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\嗶哩嗶哩bilibili影片下載工具\\Download\\Video\\2020_11_21「王様のブランチこの時季行きたい温泉ランキング▽イモトアヤコに直撃！」山田菜々-2020_11_21\\2020_11_21「王様のブランチこの時季行きたい温泉ランキング▽イモトアヤコに直撃！」山田菜々-2020_11_21.jpg"
+    },
+    {
+      "relative_path": "Game/2017/03/13/2017031323242200-F1C11A22FAEE3B82F21B330E1B786A39.jpg",
+      "group": "Game",
+      "extension": ".jpg",
+      "width": 1280,
+      "height": 720,
+      "orientation": "landscape",
+      "bytes": 153259,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Game\\2017\\03\\13\\2017031323242200-F1C11A22FAEE3B82F21B330E1B786A39.jpg"
+    },
+    {
+      "relative_path": "capture-20240922-141700.png",
+      "group": "(archive root)",
+      "extension": ".png",
+      "width": 1395,
+      "height": 776,
+      "orientation": "landscape",
+      "bytes": 1316702,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\capture-20240922-141700.png"
+    },
+    {
+      "relative_path": "Japan_2018/capture-20171017-194407.png",
+      "group": "Japan_2018",
+      "extension": ".png",
+      "width": 1560,
+      "height": 874,
+      "orientation": "landscape",
+      "bytes": 1386419,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Japan_2018\\capture-20171017-194407.png"
+    },
+    {
+      "relative_path": "Japan_2021/capture-20210116-195748.png",
+      "group": "Japan_2021",
+      "extension": ".png",
+      "width": 1588,
+      "height": 892,
+      "orientation": "landscape",
+      "bytes": 1637890,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Japan_2021\\capture-20210116-195748.png"
+    },
+    {
+      "relative_path": "Anime/capture-20151225-0940562.jpg",
+      "group": "Anime",
+      "extension": ".jpg",
+      "width": 1000,
+      "height": 638,
+      "orientation": "landscape",
+      "bytes": 218732,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Anime\\capture-20151225-0940562.jpg"
+    },
+    {
+      "relative_path": "Random/capture-20220322-134748.png",
+      "group": "Random",
+      "extension": ".png",
+      "width": 451,
+      "height": 455,
+      "orientation": "portrait",
+      "bytes": 216721,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Random\\capture-20220322-134748.png"
+    },
+    {
+      "relative_path": "Japan_2022/capture-20220509-230507.png",
+      "group": "Japan_2022",
+      "extension": ".png",
+      "width": 1348,
+      "height": 753,
+      "orientation": "landscape",
+      "bytes": 703611,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Japan_2022\\capture-20220509-230507.png"
+    },
+    {
+      "relative_path": "CN/capture-20170722-210325.png",
+      "group": "CN",
+      "extension": ".png",
+      "width": 1269,
+      "height": 710,
+      "orientation": "landscape",
+      "bytes": 1367721,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\CN\\capture-20170722-210325.png"
+    },
+    {
+      "relative_path": "Japan_2020/capture-20201009-205356.png",
+      "group": "Japan_2020",
+      "extension": ".png",
+      "width": 1373,
+      "height": 758,
+      "orientation": "landscape",
+      "bytes": 1741821,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Japan_2020\\capture-20201009-205356.png"
+    },
+    {
+      "relative_path": "Japan_2023/capture-20231025-195422.png",
+      "group": "Japan_2023",
+      "extension": ".png",
+      "width": 1218,
+      "height": 675,
+      "orientation": "landscape",
+      "bytes": 923615,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Japan_2023\\capture-20231025-195422.png"
+    },
+    {
+      "relative_path": "Normal/capture-20150501-232212.png",
+      "group": "Normal",
+      "extension": ".png",
+      "width": 929,
+      "height": 458,
+      "orientation": "landscape",
+      "bytes": 861647,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Normal\\capture-20150501-232212.png"
+    },
+    {
+      "relative_path": "Japan_2019/capture-20191111-204824.png",
+      "group": "Japan_2019",
+      "extension": ".png",
+      "width": 1363,
+      "height": 758,
+      "orientation": "landscape",
+      "bytes": 2067559,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Japan_2019\\capture-20191111-204824.png"
+    },
+    {
+      "relative_path": "Kor/capture-20171231-001025.png",
+      "group": "Kor",
+      "extension": ".png",
+      "width": 1588,
+      "height": 898,
+      "orientation": "landscape",
+      "bytes": 2005806,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Kor\\capture-20171231-001025.png"
+    },
+    {
+      "relative_path": "output/capture-20190726-214400_019.png",
+      "group": "output",
+      "extension": ".png",
+      "width": 178,
+      "height": 165,
+      "orientation": "landscape",
+      "bytes": 30542,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\output\\capture-20190726-214400_019.png"
+    },
+    {
+      "relative_path": "US/capture-20151122-113657.png",
+      "group": "US",
+      "extension": ".png",
+      "width": 1889,
+      "height": 1057,
+      "orientation": "landscape",
+      "bytes": 1379776,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\US\\capture-20151122-113657.png"
+    },
+    {
+      "relative_path": "Sticker貼圖/capture-20220529-232053.png",
+      "group": "Sticker貼圖",
+      "extension": ".png",
+      "width": 254,
+      "height": 189,
+      "orientation": "landscape",
+      "bytes": 34530,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Sticker貼圖\\capture-20220529-232053.png"
+    },
+    {
+      "relative_path": "Originals/capture-20220131-004426.png",
+      "group": "Originals",
+      "extension": ".png",
+      "width": 129,
+      "height": 219,
+      "orientation": "portrait",
+      "bytes": 36139,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Originals\\capture-20220131-004426.png"
+    },
+    {
+      "relative_path": "Tamagotchi/emTGKOy.png",
+      "group": "Tamagotchi",
+      "extension": ".png",
+      "width": 1860,
+      "height": 3700,
+      "orientation": "portrait",
+      "bytes": 1044127,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\Tamagotchi\\emTGKOy.png"
+    },
+    {
+      "relative_path": "452957936_7857428000978612_63518331707126455_n.jpg",
+      "group": "(archive root)",
+      "extension": ".jpg",
+      "width": 720,
+      "height": 720,
+      "orientation": "square",
+      "bytes": 81445,
+      "absolute_path": "C:\\Users\\kckck\\Desktop\\Output\\452957936_7857428000978612_63518331707126455_n.jpg"
+    }
+  ]
+}

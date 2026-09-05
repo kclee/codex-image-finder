@@ -1,0 +1,16 @@
+{
+  "reviewed_at": "2026-09-05",
+  "review_summary": "Generally good. Most Japanese-drama screenshot results are good. Decorated text in drawings, games, stickers, and other non-drama images is less accurate but is not the primary concern.",
+  "good_samples": [2, 7, 8, 10, 24],
+  "bad_samples": [13, 16, 17, 18],
+  "priority": {
+    "primary": "Chinese subtitles on drama screenshots",
+    "secondary": "Decorated text, drawings, games, stickers, charts, and other non-drama images"
+  },
+  "observations": {
+    "13": "Korean-drama frame with no visible Chinese subtitle; false detections occurred on a hand and smiley graphic.",
+    "16": "Small decorated sticker; OCR fragmented stylized Chinese text.",
+    "17": "Small decorated sticker rather than a drama subtitle frame.",
+    "18": "English Tamagotchi color chart rather than a drama subtitle frame."
+  }
+}

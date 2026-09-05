@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Image Finder — OCR Trial</title>
+  <style>
+    :root { --bg:#f4f1ea; --card:#fffdf8; --ink:#28251f; --muted:#746d62; --line:#ded5c7; --accent:#a13f2c; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,"Segoe UI",sans-serif; }
+    main { width:min(1500px,calc(100% - 28px)); margin:34px auto 70px; }
+    header { max-width:900px; margin-bottom:24px; }
+    h1 { margin:0; font:700 clamp(2rem,5vw,4rem)/1.05 Georgia,serif; }
+    .summary { color:var(--muted); font-size:1.05rem; }
+    .legend { display:flex; gap:18px; flex-wrap:wrap; margin:14px 0; }
+    .dot { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:6px; }
+    .red { background:#ff4d3d; } .green { background:#24c98a; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:18px; }
+    .card { overflow:hidden; border:1px solid var(--line); border-radius:13px; background:var(--card); box-shadow:0 7px 24px #392b1910; }
+    img { display:block; width:100%; aspect-ratio:3/2; object-fit:contain; background:#171717; }
+    .body { padding:16px; }
+    .meta { display:flex; flex-wrap:wrap; gap:6px; }
+    .meta span { padding:3px 7px; border-radius:999px; background:#eee6da; font-size:.78rem; }
+    h2 { margin:10px 0; font-size:.92rem; overflow-wrap:anywhere; }
+    h3 { margin:13px 0 4px; font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+    .status { color:var(--accent); font-weight:700; }
+    .ocr { min-height:1.5em; font-size:1.08rem; }
+    .muted { color:var(--muted); }
+    details { border-top:1px solid var(--line); padding-top:9px; }
+    summary { cursor:pointer; color:var(--muted); }
+    @media (prefers-color-scheme:dark) {
+      :root { --bg:#191816; --card:#23211e; --ink:#f2ede4; --muted:#bcb2a4; --line:#403b34; --accent:#f09178; }
+      .meta span { background:#39342d; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>OCR Trial</h1>
+      <p class="summary">40 images · 37 with text · 33 with Chinese characters · 26 with likely lower-frame Chinese subtitles · 0 errors · 769.8s total</p>
+      <p>This is an automated trial, not a final accuracy score. Compare the recognized text with each thumbnail. Red boxes came from full-frame OCR; green boxes came from the lower-frame fallback.</p>
+      <div class="legend"><span><i class="dot red"></i>Full frame</span><span><i class="dot green"></i>Lower-frame fallback</span></div>
+    </header>
+    <section class="grid">
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Game/2017/03/04/2017030418214500-F1C11A22FAEE3B82F21B330E1B786A39.jpg"><img src="results/thumbnails/sample-01.jpg" alt="OCR sample 1"></a>
+              <div class="body">
+                <div class="meta"><span>#01</span><span>Game</span><span>1280×720</span></div>
+                <h2>Game/2017/03/04/2017030418214500-F1C11A22FAEE3B82F21B330E1B786A39.jpg</h2>
+                <p class="status">CJK found · 12.0s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr"><span class='muted'>No confident lower-frame Chinese subtitle found</span></p>
+                <details><summary>All detected text (2 lines)</summary><p class="ocr">海<br>Skip</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/capture-20250714-001647.png"><img src="results/thumbnails/sample-02.jpg" alt="OCR sample 2"></a>
+              <div class="body">
+                <div class="meta"><span>#02</span><span>(archive root)</span><span>1179×655</span></div>
+                <h2>capture-20250714-001647.png</h2>
+                <p class="status">CJK found · 8.6s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">好想吃冰淇淋哦</p>
+                <details><summary>All detected text (1 lines)</summary><p class="ocr">好想吃冰淇淋哦</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Japan_2018/capture-20170513-213636.png"><img src="results/thumbnails/sample-03.jpg" alt="OCR sample 3"></a>
+              <div class="body">
+                <div class="meta"><span>#03</span><span>Japan_2018</span><span>1585×874</span></div>
+                <h2>Japan_2018/capture-20170513-213636.png</h2>
+                <p class="status">CJK found · 17.5s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">去面对才更重要不是吗<br>ちやんと向き合うことが<br>大事なんじゃねえの</p>
+                <details><summary>All detected text (4 lines)</summary><p class="ocr">TBS<br>去面对才更重要不是吗<br>ちやんと向き合うことが<br>大事なんじゃねえの</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Japan_2021/vlcsnap-2021-04-10-23h05m02s920.jpg"><img src="results/thumbnails/sample-04.jpg" alt="OCR sample 4"></a>
+              <div class="body">
+                <div class="meta"><span>#04</span><span>Japan_2021</span><span>1280×720</span></div>
+                <h2>Japan_2021/vlcsnap-2021-04-10-23h05m02s920.jpg</h2>
+                <p class="status">CJK found · 11.4s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">肚子好饿<br>腹減つた。</p>
+                <details><summary>All detected text (2 lines)</summary><p class="ocr">肚子好饿<br>腹減つた。</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Anime/capture-20190929-132108.png"><img src="results/thumbnails/sample-05.jpg" alt="OCR sample 5"></a>
+              <div class="body">
+                <div class="meta"><span>#05</span><span>Anime</span><span>1375×646</span></div>
+                <h2>Anime/capture-20190929-132108.png</h2>
+                <p class="status">CJK found · 13.8s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">我们要发大财了</p>
+                <details><summary>All detected text (1 lines)</summary><p class="ocr">我们要发大财了</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Random/xmas.gif"><img src="results/thumbnails/sample-06.jpg" alt="OCR sample 6"></a>
+              <div class="body">
+                <div class="meta"><span>#06</span><span>Random</span><span>400×216</span></div>
+                <h2>Random/xmas.gif</h2>
+                <p class="status">No CJK detected · 3.0s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr"><span class='muted'>No confident lower-frame Chinese subtitle found</span></p>
+                <details><summary>All detected text (0 lines)</summary><p class="ocr">No text detected</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Japan_2022/capture-20221203-235406.png"><img src="results/thumbnails/sample-07.jpg" alt="OCR sample 7"></a>
+              <div class="body">
+                <div class="meta"><span>#07</span><span>Japan_2022</span><span>1290×591</span></div>
+                <h2>Japan_2022/capture-20221203-235406.png</h2>
+                <p class="status">CJK found · 13.1s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">妳應該選一句<br>妳餘生都會用的話來試筆</p>
+                <details><summary>All detected text (2 lines)</summary><p class="ocr">妳應該選一句<br>妳餘生都會用的話來試筆</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/CN/capture-20190901-190209.png"><img src="results/thumbnails/sample-08.jpg" alt="OCR sample 8"></a>
+              <div class="body">
+                <div class="meta"><span>#08</span><span>CN</span><span>1000×553</span></div>
+                <h2>CN/capture-20190901-190209.png</h2>
+                <p class="status">CJK found · 9.6s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">你是在教训我吗</p>
+                <details><summary>All detected text (1 lines)</summary><p class="ocr">你是在教训我吗</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Japan_2020/capture-20200610-195651.png"><img src="results/thumbnails/sample-09.jpg" alt="OCR sample 9"></a>
+              <div class="body">
+                <div class="meta"><span>#09</span><span>Japan_2020</span><span>1173×661</span></div>
+                <h2>Japan_2020/capture-20200610-195651.png</h2>
+                <p class="status">CJK found · 12.7s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">每个人的理所当然都是有所不同的吧<br>人それぞれ普通って違うのかもねきっと。</p>
+                <details><summary>All detected text (4 lines)</summary><p class="ocr">14tV<br>Mio<br>每个人的理所当然都是有所不同的吧<br>人それぞれ普通って違うのかもねきっと。</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Japan_2023/capture-20230910-134932.png"><img src="results/thumbnails/sample-10.jpg" alt="OCR sample 10"></a>
+              <div class="body">
+                <div class="meta"><span>#10</span><span>Japan_2023</span><span>1147×644</span></div>
+                <h2>Japan_2023/capture-20230910-134932.png</h2>
+                <p class="status">CJK found · 10.6s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">與鄰居相處融治是很少見的</p>
+                <details><summary>All detected text (2 lines)</summary><p class="ocr">WOWqW<br>與鄰居相處融治是很少見的</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Normal/bahamut.jpg"><img src="results/thumbnails/sample-11.jpg" alt="OCR sample 11"></a>
+              <div class="body">
+                <div class="meta"><span>#11</span><span>Normal</span><span>288×272</span></div>
+                <h2>Normal/bahamut.jpg</h2>
+                <p class="status">CJK found · 8.1s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">巴幣：2630<br>勇者评價：0<br>六年级生</p>
+                <details><summary>All detected text (11 lines)</summary><p class="ocr">勇者資訊<br>離線<br>帳號：kclee<br>暱稱：<br>称號：尚未取得<br>LV5/人類/初心者<br>巴幣：2630<br>GP:0<br>勇者评價：0<br>HP<br>六年级生</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Japan_2019/capture-20190421-165123.png"><img src="results/thumbnails/sample-12.jpg" alt="OCR sample 12"></a>
+              <div class="body">
+                <div class="meta"><span>#12</span><span>Japan_2019</span><span>1881×1039</span></div>
+                <h2>Japan_2019/capture-20190421-165123.png</h2>
+                <p class="status">CJK found · 22.4s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">全部賣光光</p>
+                <details><summary>All detected text (2 lines)</summary><p class="ocr">福<br>全部賣光光</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Kor/capture-20160504-202220.png"><img src="results/thumbnails/sample-13.jpg" alt="OCR sample 13"></a>
+              <div class="body">
+                <div class="meta"><span>#13</span><span>Kor</span><span>1248×874</span></div>
+                <h2>Kor/capture-20160504-202220.png</h2>
+                <p class="status">CJK found · 16.9s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">心</p>
+                <details><summary>All detected text (3 lines)</summary><p class="ocr">70<br>2<br>心</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/output/capture-20190202-203839_020.png"><img src="results/thumbnails/sample-14.jpg" alt="OCR sample 14"></a>
+              <div class="body">
+                <div class="meta"><span>#14</span><span>output</span><span>204×185</span></div>
+                <h2>output/capture-20190202-203839_020.png</h2>
+                <p class="status">No CJK detected · 2.1s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr"><span class='muted'>No confident lower-frame Chinese subtitle found</span></p>
+                <details><summary>All detected text (0 lines)</summary><p class="ocr">No text detected</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/US/capture-20151225-112628-vert.jpg"><img src="results/thumbnails/sample-15.jpg" alt="OCR sample 15"></a>
+              <div class="body">
+                <div class="meta"><span>#15</span><span>US</span><span>1342×1421</span></div>
+                <h2>US/capture-20151225-112628-vert.jpg</h2>
+                <p class="status">No CJK detected · 44.4s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr"><span class='muted'>No confident lower-frame Chinese subtitle found</span></p>
+                <details><summary>All detected text (5 lines)</summary><p class="ocr">The one in the pink.<br>KEEP SAND<br>INSIDE<br>BOX<br>INSIDEBOX</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Sticker%E8%B2%BC%E5%9C%96/capture-20220602-171520.png"><img src="results/thumbnails/sample-16.jpg" alt="OCR sample 16"></a>
+              <div class="body">
+                <div class="meta"><span>#16</span><span>Sticker貼圖</span><span>199×162</span></div>
+                <h2>Sticker貼圖/capture-20220602-171520.png</h2>
+                <p class="status">CJK found · 5.2s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr"><span class='muted'>No confident lower-frame Chinese subtitle found</span></p>
+                <details><summary>All detected text (5 lines)</summary><p class="ocr">最<br>喜<br>歡泥<br>售<br>W</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Originals/capture-20220529-230459.png"><img src="results/thumbnails/sample-17.jpg" alt="OCR sample 17"></a>
+              <div class="body">
+                <div class="meta"><span>#17</span><span>Originals</span><span>210×201</span></div>
+                <h2>Originals/capture-20220529-230459.png</h2>
+                <p class="status">CJK found · 5.1s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr"><span class='muted'>No confident lower-frame Chinese subtitle found</span></p>
+                <details><summary>All detected text (2 lines)</summary><p class="ocr">早安安！<br>*</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Tamagotchi/IQRIntV.png"><img src="results/thumbnails/sample-18.jpg" alt="OCR sample 18"></a>
+              <div class="body">
+                <div class="meta"><span>#18</span><span>Tamagotchi</span><span>1949×1291</span></div>
+                <h2>Tamagotchi/IQRIntV.png</h2>
+                <p class="status">No CJK detected · 46.3s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr"><span class='muted'>No confident lower-frame Chinese subtitle found</span></p>
+                <details><summary>All detected text (4 lines)</summary><p class="ocr">Tamagotch<br>Chart<br>Color<br>-</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Manga/Graphic/Title.bmp"><img src="results/thumbnails/sample-19.jpg" alt="OCR sample 19"></a>
+              <div class="body">
+                <div class="meta"><span>#19</span><span>Manga</span><span>564×390</span></div>
+                <h2>Manga/Graphic/Title.bmp</h2>
+                <p class="status">CJK found · 15.7s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">英の施道</p>
+                <details><summary>All detected text (5 lines)</summary><p class="ocr">まんが<br>奥の細道<br>U<br>K<br>英の施道</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Gif_Animation/20220610_1.gif"><img src="results/thumbnails/sample-20.jpg" alt="OCR sample 20"></a>
+              <div class="body">
+                <div class="meta"><span>#20</span><span>Gif_Animation</span><span>347×412</span></div>
+                <h2>Gif_Animation/20220610_1.gif</h2>
+                <p class="status">No CJK detected · 4.1s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr"><span class='muted'>No confident lower-frame Chinese subtitle found</span></p>
+                <details><summary>All detected text (0 lines)</summary><p class="ocr">No text detected</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/%E5%97%B6%E5%93%A9%E5%97%B6%E5%93%A9bilibili%E5%BD%B1%E7%89%87%E4%B8%8B%E8%BC%89%E5%B7%A5%E5%85%B7/Download/Video/2020_11_21%E3%80%8C%E7%8E%8B%E6%A7%98%E3%81%AE%E3%83%96%E3%83%A9%E3%83%B3%E3%83%81%E3%81%93%E3%81%AE%E6%99%82%E5%AD%A3%E8%A1%8C%E3%81%8D%E3%81%9F%E3%81%84%E6%B8%A9%E6%B3%89%E3%83%A9%E3%83%B3%E3%82%AD%E3%83%B3%E3%82%B0%E2%96%BD%E3%82%A4%E3%83%A2%E3%83%88%E3%82%A2%E3%83%A4%E3%82%B3%E3%81%AB%E7%9B%B4%E6%92%83%EF%BC%81%E3%80%8D%E5%B1%B1%E7%94%B0%E8%8F%9C%E3%80%85-2020_11_21/2020_11_21%E3%80%8C%E7%8E%8B%E6%A7%98%E3%81%AE%E3%83%96%E3%83%A9%E3%83%B3%E3%83%81%E3%81%93%E3%81%AE%E6%99%82%E5%AD%A3%E8%A1%8C%E3%81%8D%E3%81%9F%E3%81%84%E6%B8%A9%E6%B3%89%E3%83%A9%E3%83%B3%E3%82%AD%E3%83%B3%E3%82%B0%E2%96%BD%E3%82%A4%E3%83%A2%E3%83%88%E3%82%A2%E3%83%A4%E3%82%B3%E3%81%AB%E7%9B%B4%E6%92%83%EF%BC%81%E3%80%8D%E5%B1%B1%E7%94%B0%E8%8F%9C%E3%80%85-2020_11_21.jpg"><img src="results/thumbnails/sample-21.jpg" alt="OCR sample 21"></a>
+              <div class="body">
+                <div class="meta"><span>#21</span><span>嗶哩嗶哩bilibili影片下載工具</span><span>1440×900</span></div>
+                <h2>嗶哩嗶哩bilibili影片下載工具/Download/Video/2020_11_21「王様のブランチこの時季行きたい温泉ランキング▽イモトアヤコに直撃！」山田菜々-2020_11_21/2020_11_21「王様のブランチこの時季行きたい温泉ランキング▽イモトアヤコに直撃！」山田菜々-2020_11_21.jpg</h2>
+                <p class="status">CJK found · 23.9s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">具音艺上的</p>
+                <details><summary>All detected text (3 lines)</summary><p class="ocr">Ooo<br>#<br>具音艺上的</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Game/2017/03/13/2017031323242200-F1C11A22FAEE3B82F21B330E1B786A39.jpg"><img src="results/thumbnails/sample-22.jpg" alt="OCR sample 22"></a>
+              <div class="body">
+                <div class="meta"><span>#22</span><span>Game</span><span>1280×720</span></div>
+                <h2>Game/2017/03/13/2017031323242200-F1C11A22FAEE3B82F21B330E1B786A39.jpg</h2>
+                <p class="status">CJK found · 17.6s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">问<br>*水饺</p>
+                <details><summary>All detected text (7 lines)</summary><p class="ocr">0<br>*<br>Cold Resistance<br>07:15<br>05:00PM<br>问<br>*水饺</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/capture-20240922-141700.png"><img src="results/thumbnails/sample-23.jpg" alt="OCR sample 23"></a>
+              <div class="body">
+                <div class="meta"><span>#23</span><span>(archive root)</span><span>1395×776</span></div>
+                <h2>capture-20240922-141700.png</h2>
+                <p class="status">CJK found · 20.5s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">拼命压抑愤怒和悲伤的表情<br>怒りと悲しみを必死に抑えている顔です。</p>
+                <details><summary>All detected text (4 lines)</summary><p class="ocr">0元レ<br>NIPPONTV<br>拼命压抑愤怒和悲伤的表情<br>怒りと悲しみを必死に抑えている顔です。</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Japan_2018/capture-20171017-194407.png"><img src="results/thumbnails/sample-24.jpg" alt="OCR sample 24"></a>
+              <div class="body">
+                <div class="meta"><span>#24</span><span>Japan_2018</span><span>1560×874</span></div>
+                <h2>Japan_2018/capture-20171017-194407.png</h2>
+                <p class="status">CJK found · 19.1s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">很自然地说早上好啊</p>
+                <details><summary>All detected text (3 lines)</summary><p class="ocr">2017<br>很自然地说早上好啊<br>「おはよ~!Nって。</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Japan_2021/capture-20210116-195748.png"><img src="results/thumbnails/sample-25.jpg" alt="OCR sample 25"></a>
+              <div class="body">
+                <div class="meta"><span>#25</span><span>Japan_2021</span><span>1588×892</span></div>
+                <h2>Japan_2021/capture-20210116-195748.png</h2>
+                <p class="status">CJK found · 19.3s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">我今天第一天上班<br>还没搞清楚状况<br>私今日が初めてでまだ事態をのみ込めてないんです</p>
+                <details><summary>All detected text (3 lines)</summary><p class="ocr">我今天第一天上班<br>还没搞清楚状况<br>私今日が初めてでまだ事態をのみ込めてないんです</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Anime/capture-20151225-0940562.jpg"><img src="results/thumbnails/sample-26.jpg" alt="OCR sample 26"></a>
+              <div class="body">
+                <div class="meta"><span>#26</span><span>Anime</span><span>1000×638</span></div>
+                <h2>Anime/capture-20151225-0940562.jpg</h2>
+                <p class="status">No CJK detected · 19.2s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr"><span class='muted'>No confident lower-frame Chinese subtitle found</span></p>
+                <details><summary>All detected text (1 lines)</summary><p class="ocr">S</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Random/capture-20220322-134748.png"><img src="results/thumbnails/sample-27.jpg" alt="OCR sample 27"></a>
+              <div class="body">
+                <div class="meta"><span>#27</span><span>Random</span><span>451×455</span></div>
+                <h2>Random/capture-20220322-134748.png</h2>
+                <p class="status">CJK found · 24.5s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">3科六<br>馬公<br>義<br>阿里山<br>臺東</p>
+                <details><summary>All detected text (28 lines)</summary><p class="ocr">119<br>120<br>121<br>122<br>123<br>2隆<br>2022/03/23<br>01時41分39秒<br>2中<br>25<br>3<br>23<br>速<br>中<br>3南日月潭<br>花蓮<br>24<br>3科六<br>馬公<br>義<br>阿里山<br>2<br>4<br>33<br>7<br>非<br>臺東<br>22</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Japan_2022/capture-20220509-230507.png"><img src="results/thumbnails/sample-28.jpg" alt="OCR sample 28"></a>
+              <div class="body">
+                <div class="meta"><span>#28</span><span>Japan_2022</span><span>1348×753</span></div>
+                <h2>Japan_2022/capture-20220509-230507.png</h2>
+                <p class="status">CJK found · 14.9s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">能够好好谈谈真是太好了</p>
+                <details><summary>All detected text (1 lines)</summary><p class="ocr">能够好好谈谈真是太好了</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/CN/capture-20170722-210325.png"><img src="results/thumbnails/sample-29.jpg" alt="OCR sample 29"></a>
+              <div class="body">
+                <div class="meta"><span>#29</span><span>CN</span><span>1269×710</span></div>
+                <h2>CN/capture-20170722-210325.png</h2>
+                <p class="status">CJK found · 16.0s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">特光台中<br>工程師</p>
+                <details><summary>All detected text (11 lines)</summary><p class="ocr">花甲<br>琉<br>男<br>台視HD<br>轉<br>大<br>王老吉<br>正宗涼茶<br>特光台中<br>工程師<br>火谷中</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Japan_2020/capture-20201009-205356.png"><img src="results/thumbnails/sample-30.jpg" alt="OCR sample 30"></a>
+              <div class="body">
+                <div class="meta"><span>#30</span><span>Japan_2020</span><span>1373×758</span></div>
+                <h2>Japan_2020/capture-20201009-205356.png</h2>
+                <p class="status">CJK found · 14.6s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">还一起读书真叫人羡慕啊<br>読書なんて</p>
+                <details><summary>All detected text (4 lines)</summary><p class="ocr">22<br>还一起读书真叫人羡慕啊<br>読書なんて<br>うらやましいな。</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Japan_2023/capture-20231025-195422.png"><img src="results/thumbnails/sample-31.jpg" alt="OCR sample 31"></a>
+              <div class="body">
+                <div class="meta"><span>#31</span><span>Japan_2023</span><span>1218×675</span></div>
+                <h2>Japan_2023/capture-20231025-195422.png</h2>
+                <p class="status">CJK found · 10.7s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">呵呵好有趣<br>ふふっ面白っ</p>
+                <details><summary>All detected text (2 lines)</summary><p class="ocr">呵呵好有趣<br>ふふっ面白っ</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Normal/capture-20150501-232212.png"><img src="results/thumbnails/sample-32.jpg" alt="OCR sample 32"></a>
+              <div class="body">
+                <div class="meta"><span>#32</span><span>Normal</span><span>929×458</span></div>
+                <h2>Normal/capture-20150501-232212.png</h2>
+                <p class="status">CJK found · 7.8s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr"><span class='muted'>No confident lower-frame Chinese subtitle found</span></p>
+                <details><summary>All detected text (2 lines)</summary><p class="ocr">E日<br>you learn from mistakes.</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Japan_2019/capture-20191111-204824.png"><img src="results/thumbnails/sample-33.jpg" alt="OCR sample 33"></a>
+              <div class="body">
+                <div class="meta"><span>#33</span><span>Japan_2019</span><span>1363×758</span></div>
+                <h2>Japan_2019/capture-20191111-204824.png</h2>
+                <p class="status">CJK found · 17.8s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">冲啊</p>
+                <details><summary>All detected text (6 lines)</summary><p class="ocr">TBS<br>RUD<br>ALLCLUB<br>K<br>冲啊<br>いけ~っ!</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Kor/capture-20171231-001025.png"><img src="results/thumbnails/sample-34.jpg" alt="OCR sample 34"></a>
+              <div class="body">
+                <div class="meta"><span>#34</span><span>Kor</span><span>1588×898</span></div>
+                <h2>Kor/capture-20171231-001025.png</h2>
+                <p class="status">CJK found · 24.9s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">TSKS韩剧社<br>哇<br>是阳光</p>
+                <details><summary>All detected text (8 lines)</summary><p class="ocr">OIHH<br>tVN<br>刘2<br>1<br>TSKS韩剧社<br>哇<br>是阳光<br>WWW.TSKSCN.COM</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/output/capture-20190726-214400_019.png"><img src="results/thumbnails/sample-35.jpg" alt="OCR sample 35"></a>
+              <div class="body">
+                <div class="meta"><span>#35</span><span>output</span><span>178×165</span></div>
+                <h2>output/capture-20190726-214400_019.png</h2>
+                <p class="status">CJK found · 3.3s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr"><span class='muted'>No confident lower-frame Chinese subtitle found</span></p>
+                <details><summary>All detected text (3 lines)</summary><p class="ocr">今天也<br>辛苦你了<br>+0网</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/US/capture-20151122-113657.png"><img src="results/thumbnails/sample-36.jpg" alt="OCR sample 36"></a>
+              <div class="body">
+                <div class="meta"><span>#36</span><span>US</span><span>1889×1057</span></div>
+                <h2>US/capture-20151122-113657.png</h2>
+                <p class="status">CJK found · 24.3s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">平和</p>
+                <details><summary>All detected text (4 lines)</summary><p class="ocr">平和<br>with a lack of time<br>to answer them.<br>三</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Sticker%E8%B2%BC%E5%9C%96/capture-20220529-232053.png"><img src="results/thumbnails/sample-37.jpg" alt="OCR sample 37"></a>
+              <div class="body">
+                <div class="meta"><span>#37</span><span>Sticker貼圖</span><span>254×189</span></div>
+                <h2>Sticker貼圖/capture-20220529-232053.png</h2>
+                <p class="status">CJK found · 2.9s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr"><span class='muted'>No confident lower-frame Chinese subtitle found</span></p>
+                <details><summary>All detected text (1 lines)</summary><p class="ocr">早安安</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Originals/capture-20220131-004426.png"><img src="results/thumbnails/sample-38.jpg" alt="OCR sample 38"></a>
+              <div class="body">
+                <div class="meta"><span>#38</span><span>Originals</span><span>129×219</span></div>
+                <h2>Originals/capture-20220131-004426.png</h2>
+                <p class="status">CJK found · 2.7s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr">樂</p>
+                <details><summary>All detected text (2 lines)</summary><p class="ocr">新年快樂<br>樂</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/Tamagotchi/emTGKOy.png"><img src="results/thumbnails/sample-39.jpg" alt="OCR sample 39"></a>
+              <div class="body">
+                <div class="meta"><span>#39</span><span>Tamagotchi</span><span>1860×3700</span></div>
+                <h2>Tamagotchi/emTGKOy.png</h2>
+                <p class="status">No CJK detected · 193.4s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr"><span class='muted'>No confident lower-frame Chinese subtitle found</span></p>
+                <details><summary>All detected text (54 lines)</summary><p class="ocr">pix<br>Female<br>Tamapatchi<br>Smart<br>Charming<br>Creative<br>Tantotchi<br>Chiroritchi<br>Mimitamatchi<br>20+ Happiness<br>10-19 Happiness<br>0-9 Happiness<br>Haretchi<br>Soyofuwatchi<br>Tororitchi<br>0-3 Care Misses<br>4+ Care Misses<br>Friendship Friendly+<br>Friendship Normal<br>Himetchi<br>Mimitchi<br>Awamokotchi<br>Ninjanyatchi<br>0-1<br>Care<br>Misses<br>2-3 Care Misses<br>4-5<br>6+<br>Lovelitchi<br>Chamametchi<br>Momotchi<br>Sebiretchi<br>2-3<br>Care Misses<br>Neliatchi<br>Memetchi<br>Coffretchi<br>Violetchi<br>4-5 Care Misses<br>By:<br>Shawn<br>Dorsey<br>Credits:<br>http://neomametchi-logs.freeforums.net<br>Mr.Blinky (Twitter: @MstrBlinky)<br>Twitter: @neomametchi<br>Cyanic (Twitter: @GMMan_BZFlag)<br>Ko-fi.com/neomametchi<br>4+<br>Friendship Friendy+<br>0-1 Care Misses<br>6+ Care Misses<br>By:Shawn Dorsey</p></details>
+              </div>
+            </article>
+            
+            <article class="card">
+              <a href="file:///C:/Users/kckck/Desktop/Output/452957936_7857428000978612_63518331707126455_n.jpg"><img src="results/thumbnails/sample-40.jpg" alt="OCR sample 40"></a>
+              <div class="body">
+                <div class="meta"><span>#40</span><span>(archive root)</span><span>720×720</span></div>
+                <h2>452957936_7857428000978612_63518331707126455_n.jpg</h2>
+                <p class="status">CJK found · 9.7s</p>
+                <h3>Likely subtitle</h3>
+                <p class="ocr"><span class='muted'>No confident lower-frame Chinese subtitle found</span></p>
+                <details><summary>All detected text (8 lines)</summary><p class="ocr">PIKMIN<br>ビクり<br>キッズデイパツク<br>13L<br>B5収纳<br>TITU<br>福<br>OLL</p></details>
+              </div>
+            </article>
+            </section>
+  </main>
+</body>
+</html>
