@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Image Finder — Project Journal</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f1ea;
+      --card: #fffdf8;
+      --ink: #28251f;
+      --muted: #6c665c;
+      --line: #ddd5c7;
+      --accent: #a13f2c;
+      --soft: #f3e3d9;
+      --done: #2e7254;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    main { width: min(980px, calc(100% - 32px)); margin: 48px auto 80px; }
+    header { margin-bottom: 28px; }
+    h1 { margin: 0 0 6px; font: 700 clamp(2rem, 6vw, 4rem)/1.05 Georgia, serif; }
+    h2 { margin: 0 0 14px; font: 700 1.35rem/1.25 Georgia, serif; }
+    h3 { margin: 24px 0 8px; font-size: 1rem; }
+    p { margin: 8px 0; }
+    code {
+      padding: 2px 6px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: color-mix(in srgb, var(--card) 70%, var(--soft));
+      overflow-wrap: anywhere;
+    }
+    .lede { max-width: 720px; color: var(--muted); font-size: 1.08rem; }
+    .status {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: .82rem;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .action-needed {
+      margin: 22px 0;
+      padding: 22px;
+      border: 2px solid var(--accent);
+      border-radius: 14px;
+      background: var(--soft);
+    }
+    .action-needed h2 { color: var(--accent); }
+    .action-needed strong { font-size: 1.08rem; }
+    .button {
+      display: inline-block;
+      margin: 10px 0 4px;
+      padding: 10px 15px;
+      border-radius: 9px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .card {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--card);
+      box-shadow: 0 8px 28px rgba(57, 43, 25, .06);
+    }
+    .wide { grid-column: 1 / -1; }
+    ul, ol { margin: 8px 0 0; padding-left: 22px; }
+    li + li { margin-top: 6px; }
+    .path { display: grid; gap: 7px; }
+    .path strong { display: inline-block; min-width: 135px; }
+    .roadmap { counter-reset: phase; list-style: none; padding: 0; }
+    .roadmap li {
+      counter-increment: phase;
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+    .roadmap li::before {
+      content: counter(phase);
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--soft);
+      color: var(--accent);
+      font-weight: 800;
+    }
+    .log-entry { border-left: 3px solid var(--accent); padding-left: 18px; }
+    .log-entry time { color: var(--muted); font-weight: 700; }
+    .check { color: var(--done); font-weight: 700; }
+    footer { margin-top: 30px; color: var(--muted); font-size: .9rem; }
+    @media (max-width: 700px) {
+      main { margin-top: 28px; }
+      .grid { grid-template-columns: 1fr; }
+      .wide { grid-column: auto; }
+      .path strong { display: block; }
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #191816;
+        --card: #23211e;
+        --ink: #f2ede4;
+        --muted: #bbb2a5;
+        --line: #403b34;
+        --accent: #f09178;
+        --soft: #442a24;
+        --done: #78c69e;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Image Finder</h1>
+      <p class="lede">A local search tool for finding memorable screenshots by subtitle, meaning, mood, people, and visual content—without moving or changing the originals.</p>
+      <span class="status">Standalone Python desktop selected</span>
+    </header>
+
+    <section class="action-needed" aria-labelledby="next-input-heading">
+      <h2 id="next-input-heading">What I need from you next</h2>
+      <p><strong>No additional architecture decision is required. The first application will be a standalone PySide6 desktop program.</strong></p>
+      <p>The next proposed step is to scaffold one native application window and the SQLite schema. The first screen will prove the folder sidebar, search bar, thumbnail grid, and preview panel before full indexing.</p>
+    </section>
+
+    <section class="grid" aria-label="Project overview">
+      <article class="card wide">
+        <h2>Project locations</h2>
+        <div class="path">
+          <p><strong>Image archive</strong> <code>C:\Users\kckck\Desktop\Output</code></p>
+          <p><strong>Project folder</strong> <code>C:\D_Data\AI-Projects\image-finder</code></p>
+        </div>
+        <p>The archive will be treated as read-only. Databases, thumbnails, caches, reports, and application code will remain in the project folder.</p>
+      </article>
+
+      <article class="card wide">
+        <h2>Inventory results</h2>
+        <ul>
+          <li><strong>3,649 total files:</strong> 3,337 images and 312 other files.</li>
+          <li><strong>Image storage:</strong> 3.01 GB (about 2.80 GiB).</li>
+          <li><strong>34 folders</strong> contain images.</li>
+          <li><strong>Formats:</strong> 2,294 PNG, 1,008 JPG, 24 GIF, and 11 BMP.</li>
+          <li><strong>Orientation:</strong> 3,098 landscape, 205 portrait, and 34 square.</li>
+          <li><strong>Most common size:</strong> 1280 × 720 (655 images), followed by 848 × 480 (104 images).</li>
+          <li><strong>Readability:</strong> dimensions were read successfully from all 3,337 images with zero errors.</li>
+          <li><strong>Date limitation:</strong> modification dates range from 2025 to 2026 even though folder names reference earlier years. Folder names will be more useful than modification dates for historical grouping.</li>
+        </ul>
+        <h3>Largest image locations</h3>
+        <p>The archive root contains 477 images. Other large groups include <code>Japan_2018</code> (319), <code>Japan_2021</code> (298), <code>Anime</code> (269), <code>Random</code> (210), <code>Japan_2022</code> (164), <code>CN</code> (154), and <code>Japan_2020</code> (153).</p>
+      </article>
+
+      <article class="card wide">
+        <h2>OCR trial results</h2>
+        <p><a class="button" href="ocr-trial.html">Review annotated results</a></p>
+        <ul>
+          <li><strong>40 representative images processed:</strong> the deterministic sample spans major folders and includes uncommon formats and orientations.</li>
+          <li><strong>37 images</strong> had some detected text; <strong>33</strong> had Chinese characters; <strong>26</strong> had likely lower-frame Chinese subtitles.</li>
+          <li><strong>13 images</strong> needed a second pass over the lower portion of the frame.</li>
+          <li><strong>Zero processing errors</strong> were recorded in the final trial.</li>
+          <li><strong>Runtime:</strong> 769.8 seconds total, averaging 19.2 seconds per image on CPU. A full CPU scan at that rate would take roughly 18 hours, so acceleration or a faster first-pass strategy is needed before scaling.</li>
+        </ul>
+        <h3>Early quality observations</h3>
+        <ul>
+          <li>Clean outlined subtitles can be recognized extremely well. Spot checks included exact readings such as <code>好想吃冰淇淋哦</code> and <code>妳應該選一句 / 妳餘生都會用的話來試筆</code>.</li>
+          <li>The engine can read both Traditional and Simplified Chinese in the trial.</li>
+          <li>Colorful television graphics and parts of faces can create false text detections.</li>
+          <li>“Chinese characters found” is not the same as “subtitle correctly read”; human review is needed to establish real accuracy.</li>
+          <li>Tall, text-heavy reference images take much longer than ordinary drama frames and should follow a different processing path.</li>
+        </ul>
+      </article>
+
+      <article class="card wide">
+        <h2>User review of OCR trial</h2>
+        <p><strong>Overall conclusion:</strong> generally good. OCR on the main target—drama screenshots with Chinese subtitles—worked well enough to continue. Lower-quality handling of decorated text in drawings, games, stickers, and other non-drama images is not currently a concern.</p>
+        <ul>
+          <li><strong>Good samples:</strong> 2, 7, 8, 10, and 24.</li>
+          <li><strong>Bad samples:</strong> 13, 16, 17, and 18.</li>
+          <li>Bad sample 13 has no visible Chinese subtitle and includes false detections on a hand and smiley.</li>
+          <li>Bad samples 16 and 17 are small decorated stickers.</li>
+          <li>Bad sample 18 is an English Tamagotchi chart.</li>
+          <li>Sample 10 demonstrates that a result can remain useful for search despite a one-character OCR mistake.</li>
+        </ul>
+        <p><strong>Decision:</strong> optimize and evaluate around drama subtitles first. Retain other images in the library, but treat their text-recognition quality as secondary.</p>
+      </article>
+
+      <article class="card wide">
+        <h2>OCR speed benchmark</h2>
+        <p><a class="button" href="speed-benchmark.html">Open benchmark report</a></p>
+        <p>Five user-approved drama screenshots were processed with four configurations. Model initialization and downloads were excluded from inference timing.</p>
+        <ul>
+          <li><strong>Server / full frame:</strong> 12.22 seconds per image; baseline text retained.</li>
+          <li><strong>Server / lower 55%:</strong> 8.36 seconds; 98.33% text similarity.</li>
+          <li><strong>Mobile / full frame:</strong> 0.96 seconds; 100% text similarity.</li>
+          <li><strong>Mobile / lower 55%:</strong> 0.72 seconds; 100% text similarity.</li>
+        </ul>
+        <p><strong>Decision:</strong> use the PP-OCRv5 mobile model on the lower 55% as the first pass, then use broader or server OCR only when the first pass is empty or uncertain. This controlled sample was 17.06× faster than the original baseline with identical approved subtitle text.</p>
+      </article>
+
+      <article class="card wide">
+        <h2>Selected Python application architecture</h2>
+        <ul>
+          <li><strong>Python:</strong> one language for scanning, OCR, indexing, search logic, and application behavior.</li>
+          <li><strong>PaddleOCR:</strong> retain the validated PP-OCRv5 mobile-first subtitle pipeline.</li>
+          <li><strong>Pillow and OpenCV:</strong> image metadata, subtitle cropping, preprocessing, and thumbnails.</li>
+          <li><strong>SQLite with FTS5:</strong> persistent image metadata, OCR text, user labels, and full-text search.</li>
+          <li><strong>PySide6 / Qt desktop UI:</strong> one native application window containing the search box, filters, thumbnail gallery, preview, corrections, and file actions.</li>
+        </ul>
+        <p><strong>Scope decision:</strong> there will be no browser and no FastAPI layer in the initial product. C# and F# remain deferred.</p>
+      </article>
+
+      <article class="card wide">
+        <h2>Standalone application requirement</h2>
+        <p>The user wants a Picasa-style experience: launch one installed program from one shortcut, work in one window, and never manage a browser or server.</p>
+        <ul>
+          <li><strong>Single window:</strong> PySide6 owns the entire interface.</li>
+          <li><strong>Same process:</strong> SQLite, folder browsing, search, thumbnails, and normal application logic run directly in Python.</li>
+          <li><strong>Background work:</strong> OCR and indexing run through Qt background workers so the gallery remains responsive.</li>
+          <li><strong>Distribution:</strong> use a portable application folder with one executable and an optional desktop shortcut; no traditional installer is required.</li>
+          <li><strong>Development launcher:</strong> provide a command/shortcut that starts the project-local Python environment with <code>pythonw.exe</code>, avoiding a persistent console window.</li>
+          <li><strong>Finished launcher:</strong> package a portable one-folder build containing <code>ImageFinder.exe</code>, Python/Qt libraries, and OCR models.</li>
+          <li><strong>Packaging preference:</strong> avoid forcing large OCR models into a self-extracting single file. The portable folder is technically several internal files but behaves as one click-to-run app.</li>
+          <li><strong>Cross-PC use:</strong> the complete portable folder can be zipped, copied to another compatible Windows PC, unzipped, and launched without installing Python.</li>
+          <li><strong>Portable data:</strong> keep settings, database, thumbnails, and model files relative to the application folder rather than under a specific Windows user profile.</li>
+          <li><strong>Library selection:</strong> prompt for the screenshot folder on first launch and allow its location to be changed, instead of hard-coding <code>C:\Users\kckck\Desktop\Output</code>.</li>
+          <li><strong>Path resilience:</strong> store image paths relative to the chosen library root where possible so a copied image library can be relinked on another computer.</li>
+        </ul>
+      </article>
+
+      <article class="card wide">
+        <h2>Existing UI references</h2>
+        <ul>
+          <li><strong><a href="https://en.eagle.cool/">Eagle</a>:</strong> closest browsing reference—dense visual grid, folder/tag navigation, hover preview, filters, ratings, and asset-focused actions.</li>
+          <li><strong><a href="https://demo.immich.app/">Immich demo</a>:</strong> reference for a clean modern gallery, simple contextual search, people, and advanced filters.</li>
+          <li><strong><a href="https://docs.photoprism.app/user-guide/navigate/">PhotoPrism UI guide</a>:</strong> reference for folder views, labels, people, favorites, and composable search filters.</li>
+        </ul>
+        <h3>Recommended Image Finder layout</h3>
+        <ul>
+          <li><strong>Left:</strong> original folder tree, favorites, and saved filters.</li>
+          <li><strong>Top:</strong> one subtitle/natural-language search box plus filter chips.</li>
+          <li><strong>Center:</strong> adjustable thumbnail grid optimized for fast visual scanning.</li>
+          <li><strong>Right:</strong> large preview, recognized subtitle, confidence, tags, and original path.</li>
+          <li><strong>Quick actions:</strong> copy image, open original location, favorite, and correct OCR.</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h2>What we are solving</h2>
+        <ul>
+          <li>Years of screenshots spread across folders and subfolders.</li>
+          <li>Frames often contain Japanese-drama actors and Chinese subtitles.</li>
+          <li>Useful or funny images are difficult to rediscover manually.</li>
+          <li>Other sources may include animation and US dramas.</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h2>Desired searches</h2>
+        <ul>
+          <li>Exact, partial, or imperfect subtitle text.</li>
+          <li>Traditional and Simplified Chinese equivalents.</li>
+          <li>Meaning or topic, even when wording differs.</li>
+          <li>Mood, scene, person, show, folder, or approximate date.</li>
+          <li>Combinations such as “sarcastic + restaurant.”</li>
+        </ul>
+      </article>
+
+      <article class="card wide">
+        <h2>Small-step roadmap</h2>
+        <ol class="roadmap">
+          <li><div><strong>Read-only inventory.</strong> Count image types, folders, dimensions, naming patterns, and likely duplicates.</div></li>
+          <li><div><strong>Representative OCR trial.</strong> Test 30–50 varied screenshots before scanning the full archive.</div></li>
+          <li><div><strong>Basic text index.</strong> Store paths and recognized subtitles in a rebuildable local SQLite database.</div></li>
+          <li><div><strong>Gallery UI.</strong> Add search, filters, thumbnails, preview, correction, copy, and open-original actions.</div></li>
+          <li><div><strong>Meaning and mood.</strong> Add multilingual semantic and visual search after the basic search works well.</div></li>
+          <li><div><strong>Optional enrichment.</strong> Consider face grouping, show labels, near-duplicates, collections, and automatic rescanning.</div></li>
+        </ol>
+      </article>
+
+      <article class="card">
+        <h2>Current technical direction</h2>
+        <ul>
+          <li>Local-first processing.</li>
+          <li>PaddleOCR as the first Chinese/Japanese OCR candidate.</li>
+          <li>Preserve raw OCR and add normalized search forms.</li>
+          <li>SQLite full-text search for the first index.</li>
+          <li>Semantic image/text models only after OCR evaluation.</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h2>Operating rules</h2>
+        <ul>
+          <li>Never move, rename, or alter original screenshots.</li>
+          <li>Test a small sample before expensive full-library work.</li>
+          <li>Make generated data safe to delete and rebuild.</li>
+          <li>Keep changes incremental and document each milestone here.</li>
+        </ul>
+      </article>
+
+      <article class="card wide">
+        <h2>Progress journal</h2>
+        <div class="log-entry">
+          <time datetime="2026-09-05">September 5, 2026</time>
+          <h3>Project concept established</h3>
+          <p><span class="check">Completed:</span> clarified the archive location, the no-move requirement, subtitle-focused search goal, desired mood/meaning discovery, local-first architecture, and small-step delivery plan.</p>
+          <h3>Read-only inventory completed</h3>
+          <p><span class="check">Completed:</span> examined filenames, folders, formats, sizes, dates, and image dimensions. Found 3,337 readable images totaling about 2.80 GiB across 34 image-containing folders. No original file was changed.</p>
+          <h3>40-image OCR trial completed</h3>
+          <p><span class="check">Completed:</span> installed an isolated, reproducible PaddleOCR environment; selected a deterministic cross-folder sample; ran full-frame OCR with lower-frame fallback; saved raw JSON results and annotated thumbnails; and generated a visual review gallery. The originals were read only.</p>
+          <h3>User review recorded</h3>
+          <p><span class="check">Completed:</span> recorded good samples 2, 7, 8, 10, and 24 and bad samples 13, 16, 17, and 18. The review confirmed that drama-subtitle OCR is generally good and that failures on decorated non-drama content are a lower priority.</p>
+          <h3>Speed benchmark completed</h3>
+          <p><span class="check">Completed:</span> compared server/full-frame, server/crop, mobile/full-frame, and mobile/crop OCR using the five user-approved samples. Mobile OCR on the lower 55% averaged 0.72 seconds per image, retained identical approved text, and was 17.06× faster than the server/full-frame baseline.</p>
+          <h3>Application stack finalized for the initial version</h3>
+          <p><span class="check">Decision:</span> use Python from beginning to end for the first working product. The brief C#/F# proposal has been deferred, avoiding a process boundary and additional development tooling while the product is still taking shape.</p>
+          <h3>UI references selected</h3>
+          <p><span class="check">Discussed:</span> use Eagle as the primary visual-browsing reference, Immich for simple contextual search, and PhotoPrism for structured filters. The recommended first layout uses a folder/filter sidebar, top search bar, central thumbnail grid, and right-side image/OCR inspector.</p>
+          <h3>Standalone desktop requirement selected</h3>
+          <p><span class="check">Decision:</span> build a Picasa-style standalone Windows application with PySide6. The initial version will use one Python desktop process with SQLite and background OCR/indexing, without a browser or FastAPI server.</p>
+          <h3>Portable deployment selected</h3>
+          <p><span class="check">Decision:</span> avoid a traditional installer. During development, launch through a command or shortcut using the project-local Python environment. For release, produce a portable one-folder Windows build with one visible executable and optional desktop shortcut.</p>
+          <h3>Cross-PC portability clarified</h3>
+          <p><span class="check">Requirement:</span> support zip → copy → unzip → run on another compatible Windows PC without requiring Python. Application data will use portable relative locations, and the image-library root will be selectable and relinkable.</p>
+          <h3>Replaceable architecture and data identity established</h3>
+          <p><span class="check">Decision:</span> a file path is a location rather than an image identity. Exact content hashes identify unchanged images after a move or rename, while locations retain first-seen and last-seen information. Analysis is stored under versioned engine, model, pipeline, parameter, and timestamp records so results can coexist, be compared, or be regenerated.</p>
+          <p><span class="check">Decision:</span> source images are permanent; everything else is derived, replaceable, and rebuildable. Core scanning, persistence, analysis, and search code remains independent of PySide6, and persistent interchange uses standard SQLite and JSON rather than Python-specific serialization.</p>
+          <h3>First desktop scaffold completed</h3>
+          <p><span class="check">Completed:</span> installed PySide6 6.11.2 in the project-local environment, created the initial versioned SQLite schema, added a UI-independent catalog service, and built a native three-panel gallery with folder filtering, subtitle/text search, preview details, and open-original action. The catalog imports all 40 trial images and recognizes them by SHA-256 content hash.</p>
+          <h3>Local source control initialized</h3>
+          <p><span class="check">Completed:</span> initialized a local Git repository on the main branch, recorded the OCR benchmark and desktop prototype in separate commits, and added repository documentation and exclusions for virtual environments, OCR models, source images, databases, caches, thumbnails, and packaging output. A private GitHub repository is recommended because reports may contain personal paths, filenames, or recognized text.</p>
+          <p><strong>Next proposed step:</strong> visually review the desktop scaffold, then add full-library discovery and incremental background indexing.</p>
+        </div>
+      </article>
+    </section>
+
+    <footer>
+      This page is the human-readable project record. It will be updated after each meaningful discussion, experiment, decision, or completed step.
+    </footer>
+  </main>
+</body>
+</html>
