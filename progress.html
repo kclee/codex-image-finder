@@ -398,7 +398,13 @@
           <p><span class="check">Completed:</span> added <strong>OCR all remaining (N)</strong>. It uses one model startup, respects the current gallery scope, skips completed identities, resumes persisted pending work, and reports exact progress, elapsed time, and live ETA. Run controls and result filters are arranged in two compact rows to keep the toolbar usable.</p>
           <p><span class="check">Safety:</span> OCR still never starts on application launch. Pause finishes the current image; closing during OCR now safely pauses and exits after that result is stored.</p>
           <p><span class="check">Verified:</span> all 11 tests passed, SQLite capacity was checked, and the live UI showed <strong>OCR all remaining (3,221)</strong> without preparing work or running OCR.</p>
-          <p><strong>Next proposed step:</strong> run the full remaining OCR when convenient, then improve the copy/share and favorites workflow on the complete searchable archive.</p>
+          <h3>Full archive OCR completed</h3>
+          <p><span class="check">Result:</span> all 3,335 present unique images now have current-version OCR results: 3,335 succeeded with zero pending, running, failed, or unprocessed. Total measured inference was about 2h 18m, with a 1.531-second median per image.</p>
+          <p><span class="check">Coverage:</span> 2,309 images (69.2%) have a selected CJK subtitle, 3,087 (92.6%) have some recognized text, and 248 have none. The mixed archive makes no-text results expected.</p>
+          <h3>Mislabeled image format handled</h3>
+          <p><span class="check">Fixed:</span> the only failed source had GIF contents under a <code>.jpg</code> filename. The full-frame fallback now reuses Pillow's decoded in-memory image instead of reopening by extension. A regression test passed and the exact failed identity succeeded on retry.</p>
+          <p><span class="check">Verified:</span> all 12 automated tests passed; the source image remained unchanged and the OCR queue is completely clear.</p>
+          <p><strong>Next proposed step:</strong> add direct copy/share and open-containing-folder actions, then portable favorites and semantic/mood search.</p>
         </div>
       </article>
     </section>

@@ -76,6 +76,11 @@ completed work. Console text is escaped safely so a Windows code-page limitation
 turn a successfully stored Chinese result into a reported OCR failure. Full-library OCR
 is not started automatically.
 
+Both the lower-frame pass and full-frame fallback use the image already decoded by
+Pillow rather than asking Paddle/OpenCV to reopen the filename. This also supports
+misleading extensions such as GIF content stored under a `.jpg` name without modifying
+the source file.
+
 The desktop batch-size selector offers 10, 25, 50, or 100 images and defaults to the
 conservative value 10. The **OCR next N in view** action prepares and processes at most
 that many outstanding image identities from the currently visible gallery, in its

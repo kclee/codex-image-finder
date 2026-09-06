@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 import tempfile
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
 
 from PIL import Image
@@ -11,7 +12,7 @@ from image_finder.analysis_queue import AnalysisQueue, AnalysisSpec
 from image_finder.analysis_specs import MOBILE_SUBTITLE_SPEC
 from image_finder.catalog import Catalog
 from image_finder.database import connect
-from image_finder.ocr_engine import _extract_lines
+from image_finder.ocr_engine import PaddleSubtitleOcr, _extract_lines
 from image_finder.review import ocr_review_reason
 from image_finder.review_store import ReviewStore
 from image_finder.text_search import query_variants
@@ -248,6 +249,39 @@ class OcrExtractionTests(unittest.TestCase):
         }
         lines = _extract_lines(payload, lower_only=True, image_height=100)
         self.assertEqual([line["text"] for line in lines], ["好想吃冰淇淋哦"])
+
+    def test_full_frame_fallback_uses_pillow_decoded_image(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "gif-content-with-jpg-extension.jpg"
+            Image.new("RGB", (80, 45), "purple").save(path, format="GIF")
+
+            class FakeOcr:
+                def __init__(self) -> None:
+                    self.inputs: list[object] = []
+
+                def predict(self, value: object) -> list[SimpleNamespace]:
+                    self.inputs.append(value)
+                    text = "English" if len(self.inputs) == 1 else "測試字幕"
+                    return [
+                        SimpleNamespace(
+                            json={
+                                "res": {
+                                    "rec_texts": [text],
+                                    "rec_scores": [0.95],
+                                    "rec_boxes": [[0, 20, 70, 40]],
+                                }
+                            }
+                        )
+                    ]
+
+            adapter = PaddleSubtitleOcr.__new__(PaddleSubtitleOcr)
+            adapter.ocr = FakeOcr()
+            output = adapter.analyze(path)
+
+            self.assertEqual(output.subtitle_text, "測試字幕")
+            self.assertEqual(output.payload["pass"], "full-frame-fallback")
+            self.assertEqual(len(adapter.ocr.inputs), 2)
+            self.assertTrue(all(not isinstance(value, str) for value in adapter.ocr.inputs))
 
 
 class ChineseSearchTests(unittest.TestCase):

@@ -77,6 +77,7 @@ class PaddleSubtitleOcr:
         with Image.open(path) as source:
             image = ImageOps.exif_transpose(source).convert("RGB")
             original_height = image.height
+            full_array = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
             crop_y = round(image.height * 0.45)
             crop = image.crop((0, crop_y, image.width, image.height))
             scale = min(2.0, max(1.0, 1600 / max(1, crop.width)))
@@ -97,7 +98,7 @@ class PaddleSubtitleOcr:
         subtitle_lines = [line for line in lines if line["contains_cjk"]]
 
         if not subtitle_lines:
-            predictions = list(self.ocr.predict(str(path)))
+            predictions = list(self.ocr.predict(full_array))
             pass_name = "full-frame-fallback"
             lines = _extract_lines(
                 _result_payload(predictions[0]) if predictions else {},
