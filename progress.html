@@ -392,7 +392,13 @@
           <p><span class="check">Completed:</span> the right inspector now offers <strong>Accept OCR</strong>, <strong>Needs correction</strong>, <strong>Not relevant</strong>, and <strong>Clear decision</strong>. Resolving a candidate advances through the remaining review list, while a separate dropdown retrieves each saved category.</p>
           <p><span class="check">Data boundary:</span> these human choices live in a separate portable <code>user-data\review-state.sqlite3</code> database keyed by stable image identity and OCR version. Unlike OCR and thumbnails, this folder is user-authored data to back up; it is excluded from Git.</p>
           <p><span class="check">Verified:</span> all 11 automated tests passed. The live UI displayed 56 unresolved candidates and enabled review actions on selection; no OCR or manual decision was run during the check.</p>
-          <p><strong>Next proposed step:</strong> use the classification workflow on real results, then decide whether the next improvement should be editable OCR corrections or stronger subtitle extraction.</p>
+          <h3>Initial human review completed</h3>
+          <p><span class="check">Result:</span> the user resolved all 56 suggestions: 25 OCR results accepted, 31 images marked not relevant, zero marked as needing correction, and zero left unresolved. OCR quality is accepted for now, so development moves from evaluation to archive coverage.</p>
+          <h3>Full remaining-library OCR is now one action</h3>
+          <p><span class="check">Completed:</span> added <strong>OCR all remaining (N)</strong>. It uses one model startup, respects the current gallery scope, skips completed identities, resumes persisted pending work, and reports exact progress, elapsed time, and live ETA. Run controls and result filters are arranged in two compact rows to keep the toolbar usable.</p>
+          <p><span class="check">Safety:</span> OCR still never starts on application launch. Pause finishes the current image; closing during OCR now safely pauses and exits after that result is stored.</p>
+          <p><span class="check">Verified:</span> all 11 tests passed, SQLite capacity was checked, and the live UI showed <strong>OCR all remaining (3,221)</strong> without preparing work or running OCR.</p>
+          <p><strong>Next proposed step:</strong> run the full remaining OCR when convenient, then improve the copy/share and favorites workflow on the complete searchable archive.</p>
         </div>
       </article>
     </section>

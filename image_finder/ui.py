@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import threading
+import time
+from collections import deque
 from pathlib import Path
 
 from PySide6.QtCore import (
@@ -34,6 +36,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
@@ -169,10 +172,12 @@ class OcrWorker(QObject):
             engine = PaddleSubtitleOcr(self.project_root / "models")
             processed = 0
             processed_ids: list[str] = []
-            while processed < target and not self.pause_requested.is_set():
-                job = queue.claim_next(run_id, batch_ids)
+            remaining_ids = deque(batch_ids)
+            while remaining_ids and not self.pause_requested.is_set():
+                image_id = remaining_ids.popleft()
+                job = queue.claim_next(run_id, [image_id])
                 if job is None:
-                    break
+                    continue
                 try:
                     output = engine.analyze(job.source_path)
                     queue.complete(
@@ -220,7 +225,11 @@ class MainWindow(QMainWindow):
         self.ocr_worker: OcrWorker | None = None
         self.ocr_batch_size = 10
         self.next_ocr_batch_ids: list[str] = []
+        self.eligible_ocr_total = 0
         self.active_ocr_target = 0
+        self.active_ocr_started_at = 0.0
+        self.active_ocr_is_all = False
+        self.close_after_ocr = False
         self.setWindowTitle("Image Finder — Prototype")
         self.resize(1280, 780)
 
@@ -249,8 +258,16 @@ class MainWindow(QMainWindow):
         search_layout.addWidget(self.review_filter_selector)
         search_layout.addWidget(self.scan_button)
 
-        self.ocr_button = QPushButton(f"OCR next {self.ocr_batch_size} in view")
+        self.ocr_button = QPushButton(f"OCR next {self.ocr_batch_size}")
+        self.ocr_button.setToolTip(
+            "Process the next unprocessed images in the currently visible gallery"
+        )
         self.ocr_button.clicked.connect(self.start_ocr_batch)
+        self.ocr_all_button = QPushButton("OCR all remaining")
+        self.ocr_all_button.setToolTip(
+            "Process every unprocessed image in the currently visible gallery"
+        )
+        self.ocr_all_button.clicked.connect(self.start_all_remaining_ocr)
         self.pause_ocr_button = QPushButton("Pause OCR")
         self.pause_ocr_button.setEnabled(False)
         self.pause_ocr_button.clicked.connect(self.pause_ocr)
@@ -265,16 +282,29 @@ class MainWindow(QMainWindow):
         self.ocr_history_button = QPushButton("OCR history…")
         self.ocr_history_button.clicked.connect(self.show_ocr_history)
         self.ocr_status = QLabel()
+        self.ocr_status.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
+        )
+        run_controls = QWidget()
+        run_layout = QHBoxLayout(run_controls)
+        run_layout.setContentsMargins(0, 0, 0, 0)
+        run_layout.addWidget(self.ocr_button)
+        run_layout.addWidget(self.ocr_all_button)
+        run_layout.addWidget(self.pause_ocr_button)
+        run_layout.addWidget(self.retry_ocr_button)
+        run_layout.addWidget(self.ocr_status, 1)
+        view_controls = QWidget()
+        view_layout = QHBoxLayout(view_controls)
+        view_layout.setContentsMargins(0, 0, 0, 0)
+        view_layout.addWidget(self.recent_ocr_button)
+        view_layout.addWidget(self.review_ocr_button)
+        view_layout.addWidget(self.ocr_history_button)
+        view_layout.addStretch(1)
         ocr_row = QWidget()
-        ocr_layout = QHBoxLayout(ocr_row)
+        ocr_layout = QVBoxLayout(ocr_row)
         ocr_layout.setContentsMargins(0, 0, 0, 0)
-        ocr_layout.addWidget(self.ocr_button)
-        ocr_layout.addWidget(self.pause_ocr_button)
-        ocr_layout.addWidget(self.retry_ocr_button)
-        ocr_layout.addWidget(self.recent_ocr_button)
-        ocr_layout.addWidget(self.review_ocr_button)
-        ocr_layout.addWidget(self.ocr_history_button)
-        ocr_layout.addWidget(self.ocr_status, 1)
+        ocr_layout.addWidget(run_controls)
+        ocr_layout.addWidget(view_controls)
 
         self.ocr_preview_label = QLabel("Next to OCR")
         self.batch_size_selector = QComboBox()
@@ -473,6 +503,7 @@ class MainWindow(QMainWindow):
             "Checking library…" if automatic else "Scanning folder…"
         )
         self.ocr_button.setEnabled(False)
+        self.ocr_all_button.setEnabled(False)
         self.batch_size_selector.setEnabled(False)
         self.retry_ocr_button.setEnabled(False)
         self.scan_progress.setRange(0, 0)
@@ -504,6 +535,7 @@ class MainWindow(QMainWindow):
         self.scan_button.setEnabled(True)
         self.scan_button.setText("Add / scan folder…")
         self.ocr_button.setEnabled(True)
+        self.ocr_all_button.setEnabled(True)
         self.batch_size_selector.setEnabled(True)
         self.retry_ocr_button.setEnabled(True)
         self.populate_groups()
@@ -529,6 +561,7 @@ class MainWindow(QMainWindow):
         self.scan_button.setEnabled(True)
         self.scan_button.setText("Add / scan folder…")
         self.ocr_button.setEnabled(True)
+        self.ocr_all_button.setEnabled(True)
         self.batch_size_selector.setEnabled(True)
         self.retry_ocr_button.setEnabled(True)
         automatic = self.scan_is_automatic
@@ -558,7 +591,7 @@ class MainWindow(QMainWindow):
         if selected is None:
             return
         self.ocr_batch_size = int(selected)
-        self.ocr_button.setText(f"OCR next {self.ocr_batch_size} in view")
+        self.ocr_button.setText(f"OCR next {self.ocr_batch_size}")
         self.refresh_ocr_preview()
 
     def refresh_ocr_preview(self) -> None:
@@ -573,6 +606,7 @@ class MainWindow(QMainWindow):
             list(ordered_results),
             self.ocr_batch_size,
         )
+        self.eligible_ocr_total = total
         self.next_ocr_batch_ids = batch_ids
         visible_preview_ids = batch_ids[:10]
         self.ocr_preview_model.replace(
@@ -598,6 +632,12 @@ class MainWindow(QMainWindow):
             self.ocr_button.setEnabled(
                 not (self.scan_thread and self.scan_thread.isRunning())
             )
+            self.ocr_all_button.setText(
+                f"OCR all remaining ({total:,})"
+            )
+            self.ocr_all_button.setEnabled(
+                not (self.scan_thread and self.scan_thread.isRunning())
+            )
             if timing:
                 next_seconds = timing.median_seconds * len(batch_ids)
                 total_seconds = timing.median_seconds * total
@@ -620,6 +660,8 @@ class MainWindow(QMainWindow):
             self.ocr_preview_label.setText("Next to OCR · no eligible images in this view")
             self.ocr_estimate_label.setText("No remaining OCR estimate for this view")
             self.ocr_button.setEnabled(False)
+            self.ocr_all_button.setText("OCR all remaining")
+            self.ocr_all_button.setEnabled(False)
 
     def show_ocr_history(self) -> None:
         summaries = self.catalog.analysis_batch_summaries(
@@ -673,29 +715,57 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def start_ocr_batch(self) -> None:
+        self.start_ocr(self.ocr_batch_size, all_remaining=False)
+
+    def start_all_remaining_ocr(self) -> None:
+        if self.eligible_ocr_total:
+            self.start_ocr(self.eligible_ocr_total, all_remaining=True)
+
+    def start_ocr(self, batch_size: int, all_remaining: bool) -> None:
         if self.ocr_thread and self.ocr_thread.isRunning():
+            return
+        ordered_image_ids = list(
+            dict.fromkeys(result.image_id for result in self.gallery_model.results)
+        )
+        batch_ids, _total = AnalysisQueue(
+            self.catalog.connection
+        ).preview_ordered_batch(
+            MOBILE_SUBTITLE_SPEC.run_id,
+            ordered_image_ids,
+            batch_size,
+        )
+        if not batch_ids:
+            self.refresh_ocr_preview()
             return
         self.scan_button.setEnabled(False)
         self.ocr_button.setEnabled(False)
+        self.ocr_all_button.setEnabled(False)
         self.batch_size_selector.setEnabled(False)
         self.retry_ocr_button.setEnabled(False)
         self.pause_ocr_button.setEnabled(True)
-        self.active_ocr_target = len(self.next_ocr_batch_ids)
+        self.active_ocr_target = len(batch_ids)
+        self.active_ocr_started_at = time.monotonic()
+        self.active_ocr_is_all = all_remaining
         self.scan_progress.setRange(0, self.active_ocr_target)
-        self.scan_progress.setFormat("Current batch: %v / %m images (%p%)")
+        self.scan_progress.setFormat(
+            "OCR all remaining: %v / %m images (%p%)"
+            if all_remaining
+            else "Current batch: %v / %m images (%p%)"
+        )
         self.scan_progress.setValue(0)
         self.scan_progress.show()
         self.statusBar().showMessage("Preparing local OCR models…")
         self.ocr_preview_label.setText(
-            f"Current OCR batch · {self.active_ocr_target} image(s)"
+            f"OCR all remaining · {self.active_ocr_target:,} image(s)"
+            if all_remaining
+            else f"Current OCR batch · {self.active_ocr_target} image(s)"
         )
 
         self.ocr_thread = QThread(self)
-        ordered_image_ids = [result.image_id for result in self.gallery_model.results]
         self.ocr_worker = OcrWorker(
             self.catalog.database_path,
             self.catalog.project_root,
-            self.ocr_batch_size,
+            len(batch_ids),
             ordered_image_ids,
         )
         self.ocr_worker.moveToThread(self.ocr_thread)
@@ -717,15 +787,26 @@ class MainWindow(QMainWindow):
 
     def update_ocr_progress(self, processed: int, filename: str) -> None:
         self.scan_progress.setValue(processed)
+        scope = "all remaining" if self.active_ocr_is_all else "batch"
         self.statusBar().showMessage(
-            f"OCR batch {processed}/{self.active_ocr_target} · {filename}"
+            f"OCR {scope} {processed:,}/{self.active_ocr_target:,} · {filename}"
         )
+        elapsed = max(0.0, time.monotonic() - self.active_ocr_started_at)
+        if processed > 0:
+            remaining = max(0, self.active_ocr_target - processed)
+            estimated_remaining = elapsed / processed * remaining
+            self.ocr_estimate_label.setText(
+                f"Running: {processed:,} / {self.active_ocr_target:,} images · "
+                f"elapsed {_format_duration(elapsed)} · estimated "
+                f"{_format_duration(estimated_remaining)} remaining"
+            )
         self.refresh_ocr_status()
 
     def finish_ocr(self, summary: object) -> None:
         self.scan_progress.hide()
         self.scan_button.setEnabled(True)
         self.ocr_button.setEnabled(True)
+        self.ocr_all_button.setEnabled(True)
         self.batch_size_selector.setEnabled(True)
         self.pause_ocr_button.setEnabled(False)
         self.refresh_ocr_status()
@@ -741,11 +822,14 @@ class MainWindow(QMainWindow):
         self.ocr_worker = None
         self.ocr_thread = None
         self.refresh_ocr_preview()
+        if self.close_after_ocr:
+            QTimer.singleShot(0, self.close)
 
     def fail_ocr(self, message: str) -> None:
         self.scan_progress.hide()
         self.scan_button.setEnabled(True)
         self.ocr_button.setEnabled(True)
+        self.ocr_all_button.setEnabled(True)
         self.batch_size_selector.setEnabled(True)
         self.pause_ocr_button.setEnabled(False)
         self.refresh_ocr_status()
@@ -754,6 +838,8 @@ class MainWindow(QMainWindow):
         self.ocr_worker = None
         self.ocr_thread = None
         self.refresh_ocr_preview()
+        if self.close_after_ocr:
+            QTimer.singleShot(0, self.close)
 
     def retry_failed_ocr(self) -> None:
         queue = AnalysisQueue(self.catalog.connection)
@@ -949,6 +1035,14 @@ class MainWindow(QMainWindow):
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.current_result.absolute_path)))
 
     def closeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        if self.ocr_thread and self.ocr_thread.isRunning():
+            self.close_after_ocr = True
+            self.pause_ocr()
+            self.statusBar().showMessage(
+                "Closing after the current OCR image is safely stored…"
+            )
+            event.ignore()
+            return
         self.review_store.close()
         super().closeEvent(event)
 

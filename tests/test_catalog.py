@@ -215,6 +215,12 @@ class AnalysisQueueTests(unittest.TestCase):
                 preview, total = queue.preview_ordered_batch(run_id, ordered, 5)
                 self.assertEqual(preview, prepared)
                 self.assertEqual(total, 12)
+                all_remaining, total = queue.preview_ordered_batch(
+                    run_id, ordered, len(ordered)
+                )
+                self.assertEqual(total, 12)
+                self.assertEqual(len(all_remaining), 12)
+                self.assertEqual(set(all_remaining), set(ordered))
                 claimed = [queue.claim_next(run_id, prepared).image_id for _ in range(5)]
                 self.assertEqual(claimed, prepared)
             finally:

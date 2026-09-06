@@ -85,6 +85,15 @@ resumed first. **Pause OCR** stops after the current image; unfinished jobs rema
 SQLite for the next run. **Retry failed** explicitly returns failed jobs to the queue.
 Opening the application never starts OCR or prepares the complete library.
 
+After the OCR approach is accepted, **OCR all remaining (N)** processes every
+outstanding stable image identity in the current gallery with one model startup. It is
+still explicit and filter-scoped: opening the app never starts the long run, and a
+folder or search filter limits what “all” means. The progress bar shows completed and
+target counts, while the timing line shows elapsed time and a live ETA. **Pause OCR**
+remains safe for this mode. If the window is closed while OCR is active, the app waits
+for the current image to be stored and then exits; starting the remaining action later
+resumes the persisted pending work instead of duplicating completed results.
+
 After a batch, the gallery automatically switches to **Last OCR batch** so the processed
 images remain visible. A checkmark identifies results from the current OCR pipeline,
 and the inspector reports its engine, model, pipeline version, completion time, and
