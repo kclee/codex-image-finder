@@ -13,6 +13,7 @@ from image_finder.catalog import Catalog
 from image_finder.database import connect
 from image_finder.ocr_engine import _extract_lines
 from image_finder.review import ocr_review_reason
+from image_finder.review_store import ReviewStore
 from image_finder.text_search import query_variants
 
 
@@ -260,6 +261,30 @@ class ReviewRuleTests(unittest.TestCase):
             "Low OCR confidence (42.0%)",
         )
         self.assertIsNone(ocr_review_reason("好想吃冰淇淋哦", 0.99))
+
+    def test_review_decisions_persist_separately_and_can_be_cleared(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "user-data" / "review-state.sqlite3"
+            store = ReviewStore(database)
+            store.set_decision("stable-image", "ocr-version", "not_relevant")
+            store.close()
+
+            reopened = ReviewStore(database)
+            try:
+                self.assertEqual(
+                    reopened.decision("stable-image", "ocr-version"),
+                    "not_relevant",
+                )
+                self.assertEqual(
+                    reopened.decisions_for_run("ocr-version"),
+                    {"stable-image": "not_relevant"},
+                )
+                reopened.clear_decision("stable-image", "ocr-version")
+                self.assertIsNone(
+                    reopened.decision("stable-image", "ocr-version")
+                )
+            finally:
+                reopened.close()
 
 
 if __name__ == "__main__":

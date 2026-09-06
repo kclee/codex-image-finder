@@ -11,6 +11,11 @@ data/
 *.sqlite3
 *.db
 
+# Portable user-authored review data: back up separately, never commit
+user-data/*.sqlite3
+user-data/*.sqlite3-wal
+user-data/*.sqlite3-shm
+
 # Generated OCR artifacts and thumbnails
 results/thumbnails/
 

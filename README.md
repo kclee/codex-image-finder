@@ -25,8 +25,10 @@ development: the original images remain local and read-only by design.
 
 > Source images are permanent. Everything else is derived, replaceable, and rebuildable.
 
-The application never modifies the selected image library. Its database, thumbnails,
-OCR output, indexes, and future embeddings live in the project data directory.
+The application never modifies the selected image library. Its machine-generated
+catalog, thumbnails, OCR output, indexes, and future embeddings live in the project
+data directory and can be rebuilt. Manual review choices are the separate user-authored
+exception described below; they remain portable and should be backed up.
 
 ## Architecture rules
 
@@ -122,9 +124,18 @@ existing job timestamps and are operational history rather than a permanent audi
 current OCR pipeline that have no selected Chinese/Japanese subtitle, no confidence
 score, or confidence below 75 percent. The inspector states the review reason. This is
 not a failure count: English images and images without subtitles are intentionally
-included so the user can dismiss them visually. Because these images are already
-processed, the next-OCR strip collapses and OCR is disabled until the review filter is
-turned off.
+included so the user can classify them visually. In the right inspector, **Accept OCR**,
+**Needs correction**, and **Not relevant** save a decision and advance to the next
+unreviewed candidate. **Clear decision** removes that choice. The review-status dropdown
+can retrieve images by any saved decision. Because these images are already processed,
+the next-OCR strip collapses and OCR is disabled until the review filter is turned off.
+
+Unlike rebuildable OCR results, manual review choices are user-authored data. They live
+separately in `user-data\review-state.sqlite3`, keyed by stable image identity and OCR
+run version, and are intentionally excluded from Git. Back up the `user-data` folder if
+those choices matter; close Image Finder before copying it so SQLite has finished all
+writes. Reprocessing with a new OCR version creates a new review context without
+overwriting decisions made against an older result.
 
 Startup deliberately separates inexpensive discovery from expensive analysis: the
 read-only incremental library check runs automatically in the background, while OCR

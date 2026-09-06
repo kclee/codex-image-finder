@@ -388,7 +388,11 @@
           <h3>Completed OCR needing review is now filterable</h3>
           <p><span class="check">Completed:</span> added a <strong>Needs review</strong> filter for current-version results with no selected Chinese/Japanese subtitle, missing confidence, or confidence below 75%. The inspector explains why each result is included, and the empty next-OCR strip collapses while reviewing.</p>
           <p><span class="check">Verified:</span> the current 114 results contain 56 review candidates, including expected English/no-subtitle images rather than 56 failures. All ten tests passed; no OCR or source-image modification occurred.</p>
-          <p><strong>Next proposed step:</strong> add a lightweight reviewed/dismissed state so expected English or no-subtitle images stop reappearing, then continue improving drama-subtitle result review.</p>
+          <h3>Manual review decisions are now persistent</h3>
+          <p><span class="check">Completed:</span> the right inspector now offers <strong>Accept OCR</strong>, <strong>Needs correction</strong>, <strong>Not relevant</strong>, and <strong>Clear decision</strong>. Resolving a candidate advances through the remaining review list, while a separate dropdown retrieves each saved category.</p>
+          <p><span class="check">Data boundary:</span> these human choices live in a separate portable <code>user-data\review-state.sqlite3</code> database keyed by stable image identity and OCR version. Unlike OCR and thumbnails, this folder is user-authored data to back up; it is excluded from Git.</p>
+          <p><span class="check">Verified:</span> all 11 automated tests passed. The live UI displayed 56 unresolved candidates and enabled review actions on selection; no OCR or manual decision was run during the check.</p>
+          <p><strong>Next proposed step:</strong> use the classification workflow on real results, then decide whether the next improvement should be editable OCR corrections or stronger subtitle extraction.</p>
         </div>
       </article>
     </section>

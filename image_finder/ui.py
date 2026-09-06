@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFileDialog,
+    QGridLayout,
     QHeaderView,
     QHBoxLayout,
     QLabel,
@@ -47,6 +48,7 @@ from .analysis_specs import MOBILE_SUBTITLE_SPEC
 from .catalog import Catalog
 from .domain import SearchResult
 from .review import ocr_review_reason
+from .review_store import ReviewStore
 
 
 def _format_duration(seconds: float) -> str:
@@ -206,6 +208,9 @@ class MainWindow(QMainWindow):
     def __init__(self, catalog: Catalog, auto_scan: bool = False) -> None:
         super().__init__()
         self.catalog = catalog
+        self.review_store = ReviewStore(
+            self.catalog.project_root / "user-data" / "review-state.sqlite3"
+        )
         self.current_group: str | None = None
         self.current_result: SearchResult | None = None
         self.scan_thread: QThread | None = None
@@ -224,12 +229,24 @@ class MainWindow(QMainWindow):
         self.search_box.setClearButtonEnabled(True)
         self.search_box.textChanged.connect(self.refresh_results)
 
+        self.review_filter_selector = QComboBox()
+        self.review_filter_selector.addItem("Review: any status", None)
+        self.review_filter_selector.addItem(
+            "Review: needs correction", "needs_correction"
+        )
+        self.review_filter_selector.addItem("Review: not relevant", "not_relevant")
+        self.review_filter_selector.addItem("Review: accepted OCR", "accepted")
+        self.review_filter_selector.currentIndexChanged.connect(
+            self.change_review_filter
+        )
+
         self.scan_button = QPushButton("Add / scan folder…")
         self.scan_button.clicked.connect(self.choose_library)
         search_row = QWidget()
         search_layout = QHBoxLayout(search_row)
         search_layout.setContentsMargins(0, 0, 0, 0)
         search_layout.addWidget(self.search_box, 1)
+        search_layout.addWidget(self.review_filter_selector)
         search_layout.addWidget(self.scan_button)
 
         self.ocr_button = QPushButton(f"OCR next {self.ocr_batch_size} in view")
@@ -244,7 +261,7 @@ class MainWindow(QMainWindow):
         self.recent_ocr_button.toggled.connect(lambda _checked: self.refresh_results())
         self.review_ocr_button = QPushButton("Needs review")
         self.review_ocr_button.setCheckable(True)
-        self.review_ocr_button.toggled.connect(lambda _checked: self.refresh_results())
+        self.review_ocr_button.toggled.connect(self.change_needs_review_filter)
         self.ocr_history_button = QPushButton("OCR history…")
         self.ocr_history_button.clicked.connect(self.show_ocr_history)
         self.ocr_status = QLabel()
@@ -347,6 +364,29 @@ class MainWindow(QMainWindow):
         self.details = QLabel()
         self.details.setWordWrap(True)
         self.details.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.review_status = QLabel("Review status: select a processed image")
+        self.review_status.setWordWrap(True)
+        self.accept_review_button = QPushButton("Accept OCR")
+        self.accept_review_button.clicked.connect(
+            lambda: self.set_review_decision("accepted")
+        )
+        self.correct_review_button = QPushButton("Needs correction")
+        self.correct_review_button.clicked.connect(
+            lambda: self.set_review_decision("needs_correction")
+        )
+        self.irrelevant_review_button = QPushButton("Not relevant")
+        self.irrelevant_review_button.clicked.connect(
+            lambda: self.set_review_decision("not_relevant")
+        )
+        self.clear_review_button = QPushButton("Clear decision")
+        self.clear_review_button.clicked.connect(self.clear_review_decision)
+        review_actions = QWidget()
+        review_actions_layout = QGridLayout(review_actions)
+        review_actions_layout.setContentsMargins(0, 0, 0, 0)
+        review_actions_layout.addWidget(self.accept_review_button, 0, 0)
+        review_actions_layout.addWidget(self.correct_review_button, 0, 1)
+        review_actions_layout.addWidget(self.irrelevant_review_button, 1, 0)
+        review_actions_layout.addWidget(self.clear_review_button, 1, 1)
         self.open_button = QPushButton("Open original")
         self.open_button.setEnabled(False)
         self.open_button.clicked.connect(self.open_original)
@@ -358,6 +398,8 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self.analysis_selector)
         right_layout.addWidget(self.analysis_details)
         right_layout.addWidget(self.details)
+        right_layout.addWidget(self.review_status)
+        right_layout.addWidget(review_actions)
         right_layout.addWidget(self.open_button)
 
         splitter = QSplitter()
@@ -375,6 +417,20 @@ class MainWindow(QMainWindow):
         self.refresh_ocr_status()
         if auto_scan:
             QTimer.singleShot(0, self.start_startup_scan)
+
+    def change_needs_review_filter(self, checked: bool) -> None:
+        if checked and self.review_filter_selector.currentData() is not None:
+            self.review_filter_selector.blockSignals(True)
+            self.review_filter_selector.setCurrentIndex(0)
+            self.review_filter_selector.blockSignals(False)
+        self.refresh_results()
+
+    def change_review_filter(self, _index: int) -> None:
+        if self.review_filter_selector.currentData() is not None:
+            self.review_ocr_button.blockSignals(True)
+            self.review_ocr_button.setChecked(False)
+            self.review_ocr_button.blockSignals(False)
+        self.refresh_results()
 
     def populate_groups(self) -> None:
         while self.folder_tree.topLevelItemCount() > 1:
@@ -718,15 +774,23 @@ class MainWindow(QMainWindow):
                 MOBILE_SUBTITLE_SPEC.run_id
             )
             results = [result for result in results if result.image_id in recent_ids]
+        decisions = self.review_store.decisions_for_run(MOBILE_SUBTITLE_SPEC.run_id)
         review_results = [
             result
             for result in results
             if result.analysis_run_id == MOBILE_SUBTITLE_SPEC.run_id
             and ocr_review_reason(result.subtitle_text, result.confidence) is not None
+            and result.image_id not in decisions
         ]
         self.review_ocr_button.setText(f"Needs review ({len(review_results):,})")
         if self.review_ocr_button.isChecked():
             results = review_results
+        elif decision_filter := self.review_filter_selector.currentData():
+            results = [
+                result
+                for result in results
+                if decisions.get(result.image_id) == decision_filter
+            ]
         self.gallery_model.replace(results)
         self.count_label.setText(
             f"Gallery: {len(results):,} image{'s' if len(results) != 1 else ''}"
@@ -747,6 +811,7 @@ class MainWindow(QMainWindow):
             self.analysis_selector.clear()
             self.analysis_details.clear()
             self.details.clear()
+            self.refresh_review_controls(False)
             self.open_button.setEnabled(False)
             return
 
@@ -783,7 +848,68 @@ class MainWindow(QMainWindow):
         self.analysis_selector.blockSignals(False)
         self.analysis_selector.setCurrentIndex(0)
         self.show_analysis_version(0)
+        self.refresh_review_controls(
+            any(record.run_id == MOBILE_SUBTITLE_SPEC.run_id for record in history)
+        )
         self.open_button.setEnabled(result.absolute_path.is_file())
+
+    def refresh_review_controls(self, has_current_ocr: bool) -> None:
+        buttons = (
+            self.accept_review_button,
+            self.correct_review_button,
+            self.irrelevant_review_button,
+        )
+        for button in buttons:
+            button.setEnabled(has_current_ocr)
+        if self.current_result is None:
+            self.review_status.setText("Review status: select a processed image")
+            self.clear_review_button.setEnabled(False)
+            return
+        if not has_current_ocr:
+            self.review_status.setText("Review status: current OCR required")
+            self.clear_review_button.setEnabled(False)
+            return
+        decision = self.review_store.decision(
+            self.current_result.image_id, MOBILE_SUBTITLE_SPEC.run_id
+        )
+        labels = {
+            "accepted": "Accepted OCR",
+            "needs_correction": "Needs correction",
+            "not_relevant": "Not relevant",
+        }
+        self.review_status.setText(
+            f"Review status: {labels.get(decision, 'Not reviewed')}"
+        )
+        self.clear_review_button.setEnabled(decision is not None)
+
+    def set_review_decision(self, decision: str) -> None:
+        if self.current_result is None:
+            return
+        current_row = max(0, self.gallery.currentIndex().row())
+        self.review_store.set_decision(
+            self.current_result.image_id, MOBILE_SUBTITLE_SPEC.run_id, decision
+        )
+        self.refresh_results()
+        self.select_review_row(current_row)
+
+    def clear_review_decision(self) -> None:
+        if self.current_result is None:
+            return
+        current_row = max(0, self.gallery.currentIndex().row())
+        self.review_store.clear_decision(
+            self.current_result.image_id, MOBILE_SUBTITLE_SPEC.run_id
+        )
+        self.refresh_results()
+        self.select_review_row(current_row)
+
+    def select_review_row(self, row: int) -> None:
+        if self.gallery_model.rowCount() == 0:
+            self.gallery.setCurrentIndex(QModelIndex())
+            return
+        next_index = self.gallery_model.index(
+            min(row, self.gallery_model.rowCount() - 1), 0
+        )
+        self.gallery.setCurrentIndex(next_index)
 
     def show_analysis_version(self, index: int) -> None:
         record = self.analysis_selector.itemData(index) if index >= 0 else None
@@ -821,6 +947,10 @@ class MainWindow(QMainWindow):
     def open_original(self) -> None:
         if self.current_result and self.current_result.absolute_path.is_file():
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.current_result.absolute_path)))
+
+    def closeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        self.review_store.close()
+        super().closeEvent(event)
 
 
 def run(catalog: Catalog, smoke_test: bool = False) -> int:
