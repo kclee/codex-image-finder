@@ -15,7 +15,7 @@ from image_finder.database import connect
 from image_finder.ocr_engine import PaddleSubtitleOcr, _extract_lines
 from image_finder.review import ocr_review_reason
 from image_finder.review_store import ReviewStore
-from image_finder.text_search import query_variants
+from image_finder.text_search import query_variants, to_traditional
 
 
 class DatabaseSchemaTests(unittest.TestCase):
@@ -288,6 +288,9 @@ class ChineseSearchTests(unittest.TestCase):
     def test_traditional_query_expands_to_simplified(self) -> None:
         variants = query_variants("你是在教訓我嗎")
         self.assertIn("你是在教训我吗", variants)
+
+    def test_copy_conversion_produces_traditional_chinese(self) -> None:
+        self.assertEqual(to_traditional("你是在教训我吗"), "你是在教訓我嗎")
 
 
 class ReviewRuleTests(unittest.TestCase):

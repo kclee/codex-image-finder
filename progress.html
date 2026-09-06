@@ -404,7 +404,10 @@
           <h3>Mislabeled image format handled</h3>
           <p><span class="check">Fixed:</span> the only failed source had GIF contents under a <code>.jpg</code> filename. The full-frame fallback now reuses Pillow's decoded in-memory image instead of reopening by extension. A regression test passed and the exact failed identity succeeded on retry.</p>
           <p><span class="check">Verified:</span> all 12 automated tests passed; the source image remained unchanged and the OCR queue is completely clear.</p>
-          <p><strong>Next proposed step:</strong> add direct copy/share and open-containing-folder actions, then portable favorites and semantic/mood search.</p>
+          <h3>Chosen sharing workflow added</h3>
+          <p><span class="check">Completed:</span> added exactly the two requested inspector actions. <strong>Copy subtitle text</strong> places a Traditional Chinese conversion on the clipboard without changing raw OCR. <strong>Open containing folder</strong> selects the original in File Explorer so it can be dragged into a browser or other destination.</p>
+          <p><span class="check">Verified:</span> Simplified <code>你是在教训我吗</code> converts to Traditional <code>你是在教訓我嗎</code>; all 13 tests passed, and a metadata-only UI check confirmed both actions enable correctly.</p>
+          <p><strong>Next proposed step:</strong> try real searches and sharing, then add portable favorites and semantic/mood search.</p>
         </div>
       </article>
     </section>

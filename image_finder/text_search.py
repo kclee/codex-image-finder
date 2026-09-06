@@ -23,3 +23,10 @@ def query_variants(query: str) -> tuple[str, ...]:
     candidates = [text]
     candidates.extend(converter.convert(text) for converter in _converters())
     return tuple(dict.fromkeys(candidate for candidate in candidates if candidate))
+
+
+@lru_cache(maxsize=512)
+def to_traditional(text: str) -> str:
+    """Convert copied OCR text to standard Traditional Chinese."""
+
+    return _converters()[1].convert(text)

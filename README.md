@@ -113,6 +113,14 @@ at query time to try equivalent script forms while preserving the original OCR o
 unchanged. This normalization is part of search, not OCR, so it can be replaced or
 enhanced without reprocessing any images.
 
+The inspector provides the two requested sharing actions. **Copy subtitle text** copies
+the selected analysis version's CJK subtitle to the system clipboard after converting
+it to standard Traditional Chinese with OpenCC; the stored OCR remains unchanged.
+The action is disabled when no selected subtitle exists. **Open containing folder**
+opens Windows File Explorer with the original image selected, ready to drag into a
+browser or another application. The equivalent macOS path uses Finder reveal, while
+other platforms open the parent folder.
+
 The **Next to OCR** strip previews up to the first ten thumbnails from the exact upcoming
 batch, along with the selected batch count, total eligible count, and approximate number
 of batches. It uses the queue's read-only candidate calculation, so merely viewing it

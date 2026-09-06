@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import threading
 import time
 from collections import deque
@@ -11,6 +12,7 @@ from PySide6.QtCore import (
     QAbstractListModel,
     QModelIndex,
     QObject,
+    QProcess,
     QThread,
     QTimer,
     Qt,
@@ -52,6 +54,7 @@ from .catalog import Catalog
 from .domain import SearchResult
 from .review import ocr_review_reason
 from .review_store import ReviewStore
+from .text_search import to_traditional
 
 
 def _format_duration(seconds: float) -> str:
@@ -417,9 +420,20 @@ class MainWindow(QMainWindow):
         review_actions_layout.addWidget(self.correct_review_button, 0, 1)
         review_actions_layout.addWidget(self.irrelevant_review_button, 1, 0)
         review_actions_layout.addWidget(self.clear_review_button, 1, 1)
-        self.open_button = QPushButton("Open original")
-        self.open_button.setEnabled(False)
-        self.open_button.clicked.connect(self.open_original)
+        self.copy_subtitle_button = QPushButton("Copy subtitle text")
+        self.copy_subtitle_button.setToolTip(
+            "Copy the recognized subtitle converted to Traditional Chinese"
+        )
+        self.copy_subtitle_button.setEnabled(False)
+        self.copy_subtitle_button.clicked.connect(self.copy_subtitle_text)
+        self.open_folder_button = QPushButton("Open containing folder")
+        self.open_folder_button.setEnabled(False)
+        self.open_folder_button.clicked.connect(self.open_containing_folder)
+        file_actions = QWidget()
+        file_actions_layout = QHBoxLayout(file_actions)
+        file_actions_layout.setContentsMargins(0, 0, 0, 0)
+        file_actions_layout.addWidget(self.copy_subtitle_button)
+        file_actions_layout.addWidget(self.open_folder_button)
 
         right = QWidget()
         right_layout = QVBoxLayout(right)
@@ -430,7 +444,7 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self.details)
         right_layout.addWidget(self.review_status)
         right_layout.addWidget(review_actions)
-        right_layout.addWidget(self.open_button)
+        right_layout.addWidget(file_actions)
 
         splitter = QSplitter()
         splitter.addWidget(self.folder_tree)
@@ -898,7 +912,8 @@ class MainWindow(QMainWindow):
             self.analysis_details.clear()
             self.details.clear()
             self.refresh_review_controls(False)
-            self.open_button.setEnabled(False)
+            self.copy_subtitle_button.setEnabled(False)
+            self.open_folder_button.setEnabled(False)
             return
 
         pixmap = QPixmap(str(result.absolute_path))
@@ -937,7 +952,7 @@ class MainWindow(QMainWindow):
         self.refresh_review_controls(
             any(record.run_id == MOBILE_SUBTITLE_SPEC.run_id for record in history)
         )
-        self.open_button.setEnabled(result.absolute_path.is_file())
+        self.open_folder_button.setEnabled(result.absolute_path.is_file())
 
     def refresh_review_controls(self, has_current_ocr: bool) -> None:
         buttons = (
@@ -1002,8 +1017,10 @@ class MainWindow(QMainWindow):
         if record is None:
             self.subtitle.setText("(No recognized text)")
             self.analysis_details.setText("Current OCR version: not processed")
+            self.copy_subtitle_button.setEnabled(False)
             return
         self.subtitle.setText(record.display_text)
+        self.copy_subtitle_button.setEnabled(bool(record.subtitle_text.strip()))
         confidence = "—" if record.confidence is None else f"{record.confidence:.1%}"
         current = (
             "Current OCR version"
@@ -1030,9 +1047,29 @@ class MainWindow(QMainWindow):
             if current.isValid():
                 self.show_result(current, QModelIndex())
 
-    def open_original(self) -> None:
-        if self.current_result and self.current_result.absolute_path.is_file():
-            QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.current_result.absolute_path)))
+    def copy_subtitle_text(self) -> None:
+        record = self.analysis_selector.currentData()
+        if record is None or not record.subtitle_text.strip():
+            return
+        copied_text = to_traditional(record.subtitle_text.strip())
+        QApplication.clipboard().setText(copied_text)
+        self.statusBar().showMessage(
+            "Traditional Chinese subtitle copied to the clipboard"
+        )
+
+    def open_containing_folder(self) -> None:
+        if self.current_result is None:
+            return
+        path = self.current_result.absolute_path
+        if not path.is_file():
+            return
+        if sys.platform == "win32":
+            QProcess.startDetached("explorer.exe", ["/select,", str(path)])
+        elif sys.platform == "darwin":
+            QProcess.startDetached("open", ["-R", str(path)])
+        else:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.parent)))
+        self.statusBar().showMessage("Opened the containing folder")
 
     def closeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
         if self.ocr_thread and self.ocr_thread.isRunning():
