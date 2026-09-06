@@ -12,6 +12,7 @@ from image_finder.analysis_specs import MOBILE_SUBTITLE_SPEC
 from image_finder.catalog import Catalog
 from image_finder.database import connect
 from image_finder.ocr_engine import _extract_lines
+from image_finder.review import ocr_review_reason
 from image_finder.text_search import query_variants
 
 
@@ -246,6 +247,19 @@ class ChineseSearchTests(unittest.TestCase):
     def test_traditional_query_expands_to_simplified(self) -> None:
         variants = query_variants("你是在教訓我嗎")
         self.assertIn("你是在教训我吗", variants)
+
+
+class ReviewRuleTests(unittest.TestCase):
+    def test_review_reason_distinguishes_missing_low_and_good_results(self) -> None:
+        self.assertEqual(
+            ocr_review_reason("", 0.98),
+            "No Chinese/Japanese subtitle was selected",
+        )
+        self.assertEqual(
+            ocr_review_reason("友人A", 0.42),
+            "Low OCR confidence (42.0%)",
+        )
+        self.assertIsNone(ocr_review_reason("好想吃冰淇淋哦", 0.99))
 
 
 if __name__ == "__main__":

@@ -118,6 +118,14 @@ loading one model per image. The gallery count is labeled separately from OCR pr
 running, failed, skipped, and measured inference-time columns. These summaries use
 existing job timestamps and are operational history rather than a permanent audit log.
 
+**Needs review** filters the current search/folder scope to completed results from the
+current OCR pipeline that have no selected Chinese/Japanese subtitle, no confidence
+score, or confidence below 75 percent. The inspector states the review reason. This is
+not a failure count: English images and images without subtitles are intentionally
+included so the user can dismiss them visually. Because these images are already
+processed, the next-OCR strip collapses and OCR is disabled until the review filter is
+turned off.
+
 Startup deliberately separates inexpensive discovery from expensive analysis: the
 read-only incremental library check runs automatically in the background, while OCR
 remains visible, resumable, and user-controlled. The queue preview is useful both during

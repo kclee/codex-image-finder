@@ -46,6 +46,7 @@ from .analysis_queue import AnalysisQueue
 from .analysis_specs import MOBILE_SUBTITLE_SPEC
 from .catalog import Catalog
 from .domain import SearchResult
+from .review import ocr_review_reason
 
 
 def _format_duration(seconds: float) -> str:
@@ -241,6 +242,9 @@ class MainWindow(QMainWindow):
         self.recent_ocr_button = QPushButton("Last OCR batch")
         self.recent_ocr_button.setCheckable(True)
         self.recent_ocr_button.toggled.connect(lambda _checked: self.refresh_results())
+        self.review_ocr_button = QPushButton("Needs review")
+        self.review_ocr_button.setCheckable(True)
+        self.review_ocr_button.toggled.connect(lambda _checked: self.refresh_results())
         self.ocr_history_button = QPushButton("OCR history…")
         self.ocr_history_button.clicked.connect(self.show_ocr_history)
         self.ocr_status = QLabel()
@@ -251,6 +255,7 @@ class MainWindow(QMainWindow):
         ocr_layout.addWidget(self.pause_ocr_button)
         ocr_layout.addWidget(self.retry_ocr_button)
         ocr_layout.addWidget(self.recent_ocr_button)
+        ocr_layout.addWidget(self.review_ocr_button)
         ocr_layout.addWidget(self.ocr_history_button)
         ocr_layout.addWidget(self.ocr_status, 1)
 
@@ -520,6 +525,7 @@ class MainWindow(QMainWindow):
         batches = (total + self.ocr_batch_size - 1) // self.ocr_batch_size
         timing = self.catalog.analysis_timing(MOBILE_SUBTITLE_SPEC.run_id)
         if total:
+            self.ocr_preview.show()
             if len(batch_ids) > len(visible_preview_ids):
                 preview_text = (
                     f"showing first {len(visible_preview_ids)} thumbnails · "
@@ -554,6 +560,7 @@ class MainWindow(QMainWindow):
                 )
         else:
             self.next_ocr_batch_ids = []
+            self.ocr_preview.hide()
             self.ocr_preview_label.setText("Next to OCR · no eligible images in this view")
             self.ocr_estimate_label.setText("No remaining OCR estimate for this view")
             self.ocr_button.setEnabled(False)
@@ -711,6 +718,15 @@ class MainWindow(QMainWindow):
                 MOBILE_SUBTITLE_SPEC.run_id
             )
             results = [result for result in results if result.image_id in recent_ids]
+        review_results = [
+            result
+            for result in results
+            if result.analysis_run_id == MOBILE_SUBTITLE_SPEC.run_id
+            and ocr_review_reason(result.subtitle_text, result.confidence) is not None
+        ]
+        self.review_ocr_button.setText(f"Needs review ({len(review_results):,})")
+        if self.review_ocr_button.isChecked():
+            results = review_results
         self.gallery_model.replace(results)
         self.count_label.setText(
             f"Gallery: {len(results):,} image{'s' if len(results) != 1 else ''}"
@@ -782,10 +798,17 @@ class MainWindow(QMainWindow):
             if record.run_id == MOBILE_SUBTITLE_SPEC.run_id
             else "Earlier analysis version"
         )
+        review_reason = (
+            ocr_review_reason(record.subtitle_text, record.confidence)
+            if record.run_id == MOBILE_SUBTITLE_SPEC.run_id
+            else None
+        )
+        review_line = f"\nReview suggested: {review_reason}" if review_reason else ""
         self.analysis_details.setText(
             f"{current} · confidence {confidence}\n"
             f"{record.engine_name} {record.engine_version} · {record.model_name}\n"
             f"Pipeline: {record.pipeline_version}\nCompleted: {record.created_at}"
+            f"{review_line}"
         )
 
     def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
