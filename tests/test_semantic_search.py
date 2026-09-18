@@ -17,6 +17,7 @@ from image_finder.semantic_search import (
     deterministic_subtitle_sample,
     hybrid_search,
     indexed_lexical_search,
+    model_shootout_specs,
     representative_subtitle_sample,
     sample_distribution,
     semantic_search,
@@ -115,6 +116,25 @@ class SemanticVersioningTests(unittest.TestCase):
             replace(spec, parameters=changed_parameters).version_id,
         )
 
+    def test_shootout_specs_pin_models_and_prefix_behavior(self) -> None:
+        specs = model_shootout_specs()
+        self.assertEqual(set(specs), {"minilm", "e5-small", "mpnet"})
+        self.assertEqual(specs["minilm"].dimensions, 384)
+        self.assertEqual(specs["e5-small"].dimensions, 384)
+        self.assertEqual(specs["mpnet"].dimensions, 768)
+        self.assertTrue(
+            all(spec.parameters["maximum_tokens"] == 512 for spec in specs.values())
+        )
+        self.assertEqual(specs["e5-small"].parameters["query_prefix"], "query: ")
+        self.assertEqual(
+            specs["e5-small"].parameters["document_prefix"], "passage: "
+        )
+        self.assertEqual(
+            specs["mpnet"].parameters["model_file"], "onnx/model_quantized.onnx"
+        )
+        self.assertTrue(all(len(spec.model_revision) == 40 for spec in specs.values()))
+        self.assertEqual(len({spec.version_id for spec in specs.values()}), 3)
+
     def test_build_reuses_then_rebuilds_for_force_or_source_change(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -153,9 +173,9 @@ class SemanticSelectionAndRankingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             subtitles = {
-                **{f"Japan_2021/{number}.png": f"日劇{number}" for number in range(6)},
-                **{f"CN/{number}.png": f"中文{number}" for number in range(3)},
-                "Anime/only.png": "動畫",
+                **{f"GroupAlpha/{number}.png": f"合成甲{number}" for number in range(6)},
+                **{f"GroupBeta/{number}.png": f"合成乙{number}" for number in range(3)},
+                "GroupGamma/only.png": "合成丙",
             }
             _, catalog_path = make_catalog(root, subtitles)
             first = representative_subtitle_sample(catalog_path, 6)
@@ -163,8 +183,8 @@ class SemanticSelectionAndRankingTests(unittest.TestCase):
             self.assertEqual(first, second)
             self.assertEqual(len(first), 6)
             distribution = sample_distribution(first)
-            self.assertEqual(set(distribution), {"Anime", "CN", "Japan_2021"})
-            self.assertGreater(distribution["Japan_2021"], distribution["Anime"])
+            self.assertEqual(set(distribution), {"GroupAlpha", "GroupBeta", "GroupGamma"})
+            self.assertGreater(distribution["GroupAlpha"], distribution["GroupGamma"])
 
     def test_selection_is_deterministic_bounded_and_uses_latest_ocr_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -257,6 +277,28 @@ class SemanticSelectionAndRankingTests(unittest.TestCase):
             self.assertGreater(results[0].score, results[1].score)
             self.assertEqual(len(results[0].source_text_sha256), 64)
 
+    def test_model_prefixes_are_applied_only_to_embedding_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project, catalog_path = make_catalog(root, {"sad.png": "難過"})
+            index_path = project / "data" / "semantic.sqlite3"
+            embedder = FakeEmbedder(
+                {"passage: 難過": [1, 0], "query: 沮喪": [1, 0]}
+            )
+            base = fake_spec()
+            spec = replace(
+                base,
+                parameters=dict(
+                    base.parameters,
+                    document_prefix="passage: ",
+                    query_prefix="query: ",
+                ),
+            )
+            build_trial_index(catalog_path, index_path, embedder, spec)
+            results = semantic_search(index_path, "沮喪", embedder, spec)
+            self.assertEqual(embedder.calls, [("passage: 難過",), ("query: 沮喪",)])
+            self.assertEqual(results[0].subtitle_text, "難過")
+
     def test_hybrid_rrf_boosts_lexical_match_without_replacing_semantics(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -289,21 +331,21 @@ class ExistingTextSearchRegressionTests(unittest.TestCase):
             root = Path(directory)
             project, catalog_path = make_catalog(
                 root,
-                {"dessert.png": "好想吃冰淇淋哦", "lesson.png": "你是在教训我吗"},
+                {"alpha.png": "合成測試冰品字幕", "beta.png": "这是测试教训吗"},
             )
             catalog = Catalog(catalog_path, project)
             try:
                 self.assertEqual(
-                    [item.relative_path for item in catalog.search("好想吃冰淇淋哦")],
-                    ["dessert.png"],
+                    [item.relative_path for item in catalog.search("合成測試冰品字幕")],
+                    ["alpha.png"],
                 )
                 self.assertEqual(
-                    [item.relative_path for item in catalog.search("冰淇淋")],
-                    ["dessert.png"],
+                    [item.relative_path for item in catalog.search("冰品")],
+                    ["alpha.png"],
                 )
                 self.assertEqual(
                     [item.relative_path for item in catalog.search("教訓")],
-                    ["lesson.png"],
+                    ["beta.png"],
                 )
             finally:
                 catalog.close()

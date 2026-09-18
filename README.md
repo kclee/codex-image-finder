@@ -17,10 +17,10 @@ development: the original images remain local and read-only by design.
 ## Documentation
 
 - [`progress.html`](progress.html) is the concise visual dashboard.
-- [`docs/journal/2026-09-05.md`](docs/journal/2026-09-05.md) records the detailed
-  initial implementation history, methods, verification, files, and commit subjects.
-- [`docs/journal/2026-09-18.md`](docs/journal/2026-09-18.md) records the bounded
-  semantic subtitle-search experiment and measured results.
+- [`docs/journal/development-history.md`](docs/journal/development-history.md) records
+  generalized implementation history, methods, verification, and aggregate findings.
+- Private working journals that quote local OCR results remain ignored on the developer's
+  machine.
 - Experiment galleries and benchmarks remain HTML when visual presentation matters.
 
 ## Data rule
@@ -202,16 +202,12 @@ The verified sample contained exactly 50 subtitles. Cached model load took about
 seconds (1.97 seconds on the first process), embedding and index creation took 2.67
 seconds, and 30 warm semantic searches had a 38 ms median and 43 ms p95. The SQLite
 index is 128 KiB, including 75 KiB of raw vector values; the local model cache is about
-240 MiB. All six unmodified evaluation queries had zero exact/partial matches in the
-full OCR catalog, making their semantic results a genuine additional search path.
+240 MiB. The fixed evaluation queries had no literal matches, making their semantic
+results a genuine additional search path.
 
-Results were mixed. `傻眼` found `(你是傻瓜吗？)` first (0.771), and both
-`很尷尬，不知道該說什麼` and `awkward reaction` found `感觉怪怪的 / 何か変。`
-first (0.630 and 0.621). English `I don't know what to say` found several speech-related
-Chinese/Japanese subtitles. In contrast, `想吃甜食` returned unrelated results because
-the deterministic sample contained no suitable food subtitle, and the friend-apology
-scenario produced weak generic associations. A disclosed post-hoc probe,
-`安慰心情不好的人`, ranked `別愁眉苦脸的` first (0.634).
+Results were mixed. Some reaction, paraphrase, and cross-language queries retrieved
+conceptually related subtitles, while concepts absent from the deterministic sample
+returned unrelated text. Conversational role and participant direction were also weak.
 
 The experiment is promising for paraphrases, reactions, conversational intent, and
 cross-language queries when a relevant subtitle exists. It is not reliable for visual
@@ -223,11 +219,10 @@ unchanged and should remain the primary route for known wording.
 ### 1,000-subtitle evaluation and experimental hybrid search
 
 The second evaluation retains the same model and storage format but uses a separate
-`data\semantic-subtitle-evaluation-1000.sqlite3` index. It selects exactly 1,000 of the
-2,309 latest non-empty OCR subtitles by top-level folder: every group receives at least
-one slot, remaining slots are allocated proportionally, and content SHA-256 provides
-the stable order inside each group. This includes archive-root images, every Japan year
-folder from 2018 through 2023, CN, Anime, Game, Korean, US, stickers, and smaller groups.
+`data\semantic-subtitle-evaluation-1000.sqlite3` index. It selects exactly 1,000 latest
+non-empty OCR subtitles by top-level folder: every group receives at least one slot,
+remaining slots are allocated proportionally, and content SHA-256 provides the stable
+order inside each group. Collection-specific distribution details remain local.
 
 The fixed evaluation queries live in `semantic-evaluation-queries.json`. Run the
 reproducible evaluation with:
@@ -248,12 +243,12 @@ the unchanged model cache is 240 MiB. Sixteen warm semantic queries had a 57 ms 
 and lexical fusion increased the median to 63 ms. A matching index was detected in
 0.027 seconds, excluding model startup.
 
-The larger sample was more useful than the 50-item sample: strong retrieval included
-`被嚇到` → `可怕可怕可怕`, `不想上班` → `我干不下去了`, and English
-`I don't know what to say` → `不知道该怎么回复他才好`. Failures remain important:
-the comfort query retrieved descriptions of distress rather than comforting language,
-`吐槽朋友` mostly matched the concept of “friend,” and `很無奈` returned vague
-associations. High cosine scores can therefore still be confidently wrong.
+The larger sample was more useful than the 50-item sample: reaction, work-avoidance,
+and English-to-Chinese conversational queries produced some strong paraphrase matches.
+Failures remain important: a comfort query retrieved descriptions of distress rather
+than comforting language, keyword-heavy prompts overmatched individual nouns, and an
+emotion query returned vague associations. High cosine scores can therefore still be
+confidently wrong.
 
 Only `很開心` had literal matches in the fixed query set: seven in the full catalog and
 four in the sampled index. Hybrid fusion moved literal matches upward, while the other
@@ -261,12 +256,72 @@ four in the sampled index. Hybrid fusion moved literal matches upward, while the
 better blended ranker. The product implication is to preserve exact/partial search and,
 if exposed later, present semantic results as an explicit secondary mode or section.
 
-At the observed throughput, all 2,309 current non-empty subtitles would take roughly
-354 seconds (5.9 minutes), about 3.38 MiB of raw vectors, and approximately 4.8 MiB of
-SQLite storage, plus the existing model cache. The full archive was not embedded.
+At the observed throughput, a full local subtitle index was projected to take several
+minutes and only a few MiB of vector/index storage, plus the existing model cache. The
+full archive was not embedded.
+
+### Controlled embedding-model shootout
+
+The fixed 1,000-subtitle sample and fixed 16-query set were reused unchanged to compare
+MiniLM with two deployment-realistic local ONNX alternatives. Run the comparison with:
+
+```powershell
+.\.venv\Scripts\python.exe run_semantic_model_shootout.py --rebuild
+```
+
+The pinned candidates are `intfloat/multilingual-e5-small` revision
+`614241f622f53c4eeff9890bdc4f31cfecc418b3` (384 dimensions, full float32 ONNX,
+MIT) and `sentence-transformers/paraphrase-multilingual-mpnet-base-v2` from the
+Xenova ONNX repository revision `e5d116277351513fd260955ece953ecddde7046e`
+(768 dimensions, dynamic-int8 ONNX, Apache-2.0). E5 uses mean pooling, L2
+normalization, and mandatory `query: ` / `passage: ` prefixes. MPNet uses mean pooling
+and L2 normalization without prefixes. All model files are local and revision-pinned.
+
+| Model | Package | Embed 1,000 | Throughput | Warm query median / p95 | Raw vectors | SQLite |
+|---|---:|---:|---:|---:|---:|---:|
+| MiniLM baseline | 240.46 MiB | 113.54 s | 8.81/s | 66.6 / 80.7 ms | 1.46 MiB | 2.07 MiB |
+| E5-small | 490.74 MiB | 22.67 s | 44.11/s | 31.1 / 49.8 ms | 1.46 MiB | 2.07 MiB |
+| MPNet int8 | 286.87 MiB | 30.23 s | 33.08/s | 55.5 / 69.0 ms | 2.93 MiB | 4.02 MiB |
+
+Default 256-item FastEmbed build batches produced high observed process working-set
+peaks: about 2.55 GiB for MiniLM, 6.08 GiB for E5-small, and 7.56 GiB for MPNet. These
+are 50 ms observations rather than hard limits, but they are important packaging
+evidence: a future desktop build should use smaller controlled embedding batches and
+measure memory again before adopting any model. Model load observations were much lower,
+roughly 580–810 MiB.
+
+Quality was mixed. MPNet improved one English-to-Chinese conversational query and
+removed an opposite-intent result from another query. E5-small was fastest and reduced
+one bare-keyword failure, but frequently returned broadly related or noisy text instead
+of the requested conversational intent. No model consistently solved participant
+direction, and keyword domination remained across candidates.
+
+The complete local top-five rows and timings are generated into the ignored
+`results\semantic_model_shootout.json`. Open the ignored `semantic-model-shootout.html`
+locally for the side-by-side human review with existing derived thumbnails. Useful/Maybe/Not useful
+ratings save automatically to browser `localStorage` for this exact evaluation version,
+query set, and sample manifest. The toolbar shows reviewed, remaining, and per-rating
+counts. Export creates a descriptive partial or complete JSON filename; importing that
+JSON restores progress in another browser or machine after validating the report
+version, query set, manifest, model revision, stable image ID, image-content SHA-256,
+path, subtitle, rank, and score. Clear review requires confirmation. Browser storage is
+profile-local, so export
+JSON periodically when the judgments matter.
+
+To change only the static review presentation later without rerunning embeddings or
+rankings, use:
+
+```powershell
+.\.venv\Scripts\python.exe run_semantic_model_shootout.py --render-existing
+```
+
+Cosine values are reference ranking scores only and must not be compared across model
+families as probabilities. No permanent winner has been selected; manual image review
+is the next decision point.
 
 ## Source control
 
-Downloaded models, the virtual environment, derived data, generated thumbnails, and
-packaging output are intentionally ignored. The repository should normally be private
-because reports may contain local paths, filenames, or recognized subtitle text.
+Downloaded models, the virtual environment, derived data, generated reports and
+thumbnails, human review exports, and packaging output are intentionally ignored.
+Tracked tests use only synthetic/anonymized fixtures. Before committing, inspect staged
+content for OCR text, local paths, hashes, thumbnails, or collection-derived results.

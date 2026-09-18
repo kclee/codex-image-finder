@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import difflib
 import html
 import json
@@ -16,11 +17,10 @@ import numpy as np
 from PIL import Image, ImageOps
 
 
-PROJECT_ROOT = Path(r"C:\D_Data\AI-Projects\image-finder")
+PROJECT_ROOT = Path(__file__).resolve().parent
 RESULTS_DIR = PROJECT_ROOT / "results"
 MODEL_CACHE = PROJECT_ROOT / "models"
 TRIAL_DATA = RESULTS_DIR / "ocr_trial.json"
-GOOD_SAMPLE_NUMBERS = [2, 7, 8, 10, 24]
 CJK_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
 
 os.environ.setdefault("PADDLE_PDX_CACHE_HOME", str(MODEL_CACHE))
@@ -101,7 +101,7 @@ def build_report(report: dict) -> str:
     summary_rows = "".join(
         f"<tr><td>{html.escape(row['configuration'])}</td><td>{row['average_seconds']:.2f}s</td>"
         f"<td>{row['median_seconds']:.2f}s</td><td>{row['average_similarity']:.1%}</td>"
-        f"<td>{row['exact_matches']}/5</td></tr>"
+        f"<td>{row['exact_matches']}/{report['sample_count']}</td></tr>"
         for row in report["summary"]
     )
     detail_rows = "".join(
@@ -124,7 +124,7 @@ th{{color:var(--muted);font-size:.8rem;text-transform:uppercase}} code{{backgrou
 @media(prefers-color-scheme:dark){{:root{{--bg:#191816;--card:#23211e;--ink:#f2ede4;--muted:#bcb2a4;--line:#403b34;--accent:#f09178}}code{{background:#39342d}}}}
 </style></head><body><main>
 <h1>OCR Speed Benchmark</h1>
-<p>Five user-approved drama screenshots. Model initialization and downloads are excluded from inference times. Text similarity is measured against the previously approved server-model result.</p>
+<p>User-selected OCR trial samples. Model initialization and downloads are excluded from inference times. Text similarity is measured against the saved server-model result.</p>
 <section class="card recommend"><h2>Recommendation</h2><p>{html.escape(winner)}</p></section>
 <section class="card"><h2>Summary</h2><div class="scroll"><table><thead><tr><th>Configuration</th><th>Average</th><th>Median</th><th>Text similarity</th><th>Exact</th></tr></thead><tbody>{summary_rows}</tbody></table></div></section>
 <section class="card"><h2>Per-image results</h2><div class="scroll"><table><thead><tr><th>Sample</th><th>Configuration</th><th>Time</th><th>Similarity</th><th>Recognized subtitle</th></tr></thead><tbody>{detail_rows}</tbody></table></div></section>
@@ -132,10 +132,23 @@ th{{color:var(--muted);font-size:.8rem;text-transform:uppercase}} code{{backgrou
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--trial-data", type=Path, default=TRIAL_DATA)
+    parser.add_argument(
+        "--samples",
+        type=int,
+        nargs="+",
+        required=True,
+        help="one-based sample numbers from the local OCR trial",
+    )
+    args = parser.parse_args()
+
     from paddleocr import PaddleOCR
 
-    trial = json.loads(TRIAL_DATA.read_text(encoding="utf-8"))
-    samples = [(number, trial["items"][number - 1]) for number in GOOD_SAMPLE_NUMBERS]
+    trial = json.loads(args.trial_data.read_text(encoding="utf-8"))
+    if any(number < 1 or number > len(trial["items"]) for number in args.samples):
+        raise SystemExit("every --samples value must identify an item in the trial")
+    samples = [(number, trial["items"][number - 1]) for number in args.samples]
     rows: list[dict] = []
 
     for number, item in samples:
@@ -234,8 +247,9 @@ def main() -> None:
     )
     report = {
         "created_at": datetime.now().astimezone().isoformat(),
-        "samples": GOOD_SAMPLE_NUMBERS,
-        "method": "Five user-approved drama screenshots; inference only; OCR text compared with approved baseline output.",
+        "samples": args.samples,
+        "sample_count": len(samples),
+        "method": "User-selected OCR trial samples; inference only; OCR text compared with the saved baseline output.",
         "summary": summary,
         "rows": rows,
         "recommendation": recommendation,

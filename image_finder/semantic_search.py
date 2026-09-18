@@ -22,10 +22,13 @@ MAX_EVALUATION_IMAGES = 1000
 INDEX_SCHEMA_VERSION = 1
 PIPELINE_VERSION = "ocr-subtitle-semantic-v1"
 EVALUATION_PIPELINE_VERSION = "ocr-subtitle-semantic-stratified-v2"
+SHOOTOUT_PIPELINE_VERSION = "ocr-subtitle-semantic-model-shootout-v1"
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 MODEL_SOURCE = "qdrant/paraphrase-multilingual-MiniLM-L12-v2-onnx-Q"
 MODEL_REVISION = "faf4aa4225822f3bc6376869cb1164e8e3feedd0"
 EMBEDDING_DIMENSIONS = 384
+E5_SMALL_REVISION = "614241f622f53c4eeff9890bdc4f31cfecc418b3"
+MPNET_REVISION = "e5d116277351513fd260955ece953ecddde7046e"
 
 
 def _canonical_hash(value: object) -> str:
@@ -130,6 +133,7 @@ class FastEmbedder:
 
     def __init__(self, cache_dir: Path, spec: SemanticSpec) -> None:
         from fastembed import TextEmbedding
+        from fastembed.common.model_description import ModelSource, PoolingType
 
         installed = {
             "fastembed": importlib.metadata.version("fastembed"),
@@ -143,22 +147,62 @@ class FastEmbedder:
             raise RuntimeError(
                 f"embedding dependency mismatch: expected {expected}, found {installed}"
             )
-        repository = cache_dir / (
-            "models--" + spec.model_source.replace("/", "--").lower()
-        )
-        revision_file = repository / "refs" / "main"
-        if not revision_file.is_file():
-            raise RuntimeError(f"local model revision is unavailable: {revision_file}")
-        cached_revision = revision_file.read_text(encoding="utf-8").strip()
-        if cached_revision != spec.model_revision:
-            raise RuntimeError(
-                "model revision mismatch: "
-                f"expected {spec.model_revision}, found {cached_revision}"
-            )
+        repository = cache_dir / ("models--" + spec.model_source.replace("/", "--"))
+        custom_model_id = spec.parameters.get("fastembed_model_id")
+        model_file = str(spec.parameters.get("model_file", "onnx/model.onnx"))
+        specific_model_path: str | None = None
+        fastembed_model_name = spec.model_name
+        if custom_model_id:
+            snapshot = repository / "snapshots" / spec.model_revision
+            if not (snapshot / model_file).is_file():
+                raise RuntimeError(
+                    "pinned local model snapshot is unavailable: "
+                    f"{snapshot / model_file}"
+                )
+            fastembed_model_name = str(custom_model_id)
+            registered = {
+                item["model"].casefold() for item in TextEmbedding.list_supported_models()
+            }
+            if fastembed_model_name.casefold() not in registered:
+                pooling_name = str(spec.parameters.get("pooling", "mean")).upper()
+                try:
+                    pooling = PoolingType[pooling_name]
+                except KeyError as error:
+                    raise ValueError(f"unsupported pooling mode: {pooling_name}") from error
+                TextEmbedding.add_custom_model(
+                    model=fastembed_model_name,
+                    pooling=pooling,
+                    normalization=bool(spec.parameters.get("l2_normalize", True)),
+                    sources=ModelSource(hf=spec.model_source),
+                    dim=spec.dimensions,
+                    model_file=model_file,
+                    description="Pinned Image Finder semantic model evaluation",
+                    license=str(spec.parameters.get("license", "")),
+                )
+            specific_model_path = str(snapshot)
+        else:
+            revision_file = repository / "refs" / "main"
+            if not revision_file.is_file():
+                # FastEmbed historically lower-cased this cache directory.
+                repository = cache_dir / (
+                    "models--" + spec.model_source.replace("/", "--").lower()
+                )
+                revision_file = repository / "refs" / "main"
+            if not revision_file.is_file():
+                raise RuntimeError(
+                    f"local model revision is unavailable: {revision_file}"
+                )
+            cached_revision = revision_file.read_text(encoding="utf-8").strip()
+            if cached_revision != spec.model_revision:
+                raise RuntimeError(
+                    "model revision mismatch: "
+                    f"expected {spec.model_revision}, found {cached_revision}"
+                )
         self._model = TextEmbedding(
-            model_name=spec.model_name,
+            model_name=fastembed_model_name,
             cache_dir=str(cache_dir),
             local_files_only=True,
+            specific_model_path=specific_model_path,
         )
 
     def embed(self, texts: Sequence[str]) -> Sequence[Sequence[float]]:
@@ -303,6 +347,68 @@ def evaluation_spec() -> SemanticSpec:
     )
 
 
+def model_shootout_specs() -> dict[str, SemanticSpec]:
+    """Pinned, deployment-realistic models for the controlled 1,000-item run."""
+
+    baseline = evaluation_spec()
+    baseline_parameters = dict(baseline.parameters)
+    baseline_parameters.update(
+        {
+            "license": "apache-2.0",
+            "model_file": "model_optimized.onnx",
+            "quantization": "dynamic-int8",
+        }
+    )
+    baseline = replace(
+        baseline,
+        pipeline_version=SHOOTOUT_PIPELINE_VERSION,
+        parameters=baseline_parameters,
+    )
+
+    e5_parameters = dict(baseline.parameters)
+    e5_parameters.update(
+        {
+            "license": "mit",
+            "maximum_tokens": 512,
+            "query_prefix": "query: ",
+            "document_prefix": "passage: ",
+            "model_file": "onnx/model.onnx",
+            "quantization": "float32",
+            "fastembed_model_id": "image-finder/multilingual-e5-small-f32",
+        }
+    )
+    e5 = replace(
+        baseline,
+        model_name="intfloat/multilingual-e5-small",
+        model_source="intfloat/multilingual-e5-small",
+        model_revision=E5_SMALL_REVISION,
+        dimensions=384,
+        parameters=e5_parameters,
+    )
+
+    mpnet_parameters = dict(baseline.parameters)
+    mpnet_parameters.update(
+        {
+            "license": "apache-2.0",
+            "maximum_tokens": 512,
+            "query_prefix": None,
+            "document_prefix": None,
+            "model_file": "onnx/model_quantized.onnx",
+            "quantization": "dynamic-int8",
+            "fastembed_model_id": "image-finder/multilingual-mpnet-base-v2-int8",
+        }
+    )
+    mpnet = replace(
+        baseline,
+        model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+        model_source="Xenova/paraphrase-multilingual-mpnet-base-v2",
+        model_revision=MPNET_REVISION,
+        dimensions=768,
+        parameters=mpnet_parameters,
+    )
+    return {"minilm": baseline, "e5-small": e5, "mpnet": mpnet}
+
+
 def _manifest_hash(candidates: Sequence[SubtitleCandidate]) -> str:
     return _canonical_hash(
         [
@@ -316,6 +422,12 @@ def _manifest_hash(candidates: Sequence[SubtitleCandidate]) -> str:
     )
 
 
+def sample_manifest_hash(candidates: Sequence[SubtitleCandidate]) -> str:
+    """Return the stable identity/path/source-text manifest hash for a sample."""
+
+    return _manifest_hash(candidates)
+
+
 def _normalized(values: Sequence[float], dimensions: int) -> tuple[float, ...]:
     vector = tuple(float(value) for value in values)
     if len(vector) != dimensions:
@@ -324,6 +436,17 @@ def _normalized(values: Sequence[float], dimensions: int) -> tuple[float, ...]:
     if not norm:
         raise ValueError("embedding vector has zero magnitude")
     return tuple(value / norm for value in vector)
+
+
+def _prefixed_texts(
+    texts: Sequence[str], spec: SemanticSpec, parameter: str
+) -> list[str]:
+    prefix = spec.parameters.get(parameter)
+    if prefix is None:
+        return list(texts)
+    if not isinstance(prefix, str):
+        raise ValueError(f"{parameter} must be a string or null")
+    return [prefix + text for text in texts]
 
 
 def _connect_index(index_path: Path) -> sqlite3.Connection:
@@ -405,7 +528,10 @@ def build_trial_index(
             )
 
         embedding_started = time.perf_counter()
-        raw_vectors = list(embedder.embed([item.subtitle_text for item in candidates]))
+        document_texts = _prefixed_texts(
+            [item.subtitle_text for item in candidates], spec, "document_prefix"
+        )
+        raw_vectors = list(embedder.embed(document_texts))
         embedding_seconds = time.perf_counter() - embedding_started
         if len(raw_vectors) != len(candidates):
             raise ValueError("embedder returned a different number of vectors than texts")
@@ -472,7 +598,8 @@ def semantic_search(
     text = query.strip()
     if not text or limit <= 0:
         return []
-    query_vector = _normalized(embedder.embed([text])[0], spec.dimensions)
+    query_text = _prefixed_texts([text], spec, "query_prefix")[0]
+    query_vector = _normalized(embedder.embed([query_text])[0], spec.dimensions)
     connection = _connect_index(index_path)
     try:
         run = connection.execute(

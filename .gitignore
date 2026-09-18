@@ -16,8 +16,22 @@ user-data/*.sqlite3
 user-data/*.sqlite3-wal
 user-data/*.sqlite3-shm
 
-# Generated OCR artifacts and thumbnails
-results/thumbnails/
+# Generated/private collection data. Everything here is local and rebuildable.
+results/
+
+# Generated reports can embed OCR text, paths, hashes, and thumbnails.
+/ocr-trial.html
+/speed-benchmark.html
+/semantic-model-shootout.html
+/progress.html
+
+# Human review exports are private local data.
+/review-exports/
+/*semantic-review*.json
+
+# Private working journals retained locally; the generalized public journal is tracked.
+/docs/journal/2026-09-05.md
+/docs/journal/2026-09-18.md
 
 # Packaging output
 build/

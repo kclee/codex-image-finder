@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import html
 import json
@@ -17,8 +18,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageOps
 
 
-ARCHIVE_ROOT = Path(r"C:\Users\kckck\Desktop\Output")
-PROJECT_ROOT = Path(r"C:\D_Data\AI-Projects\image-finder")
+PROJECT_ROOT = Path(__file__).resolve().parent
+ARCHIVE_ROOT: Path | None = None
 RESULTS_DIR = PROJECT_ROOT / "results"
 THUMBNAIL_DIR = RESULTS_DIR / "thumbnails"
 MODEL_CACHE = PROJECT_ROOT / "models"
@@ -33,16 +34,22 @@ if hasattr(sys.stdout, "reconfigure"):
 
 
 def stable_key(path: Path) -> str:
+    if ARCHIVE_ROOT is None:
+        raise RuntimeError("archive root has not been configured")
     relative = path.relative_to(ARCHIVE_ROOT).as_posix().casefold()
     return hashlib.sha256(relative.encode("utf-8")).hexdigest()
 
 
 def top_group(path: Path) -> str:
+    if ARCHIVE_ROOT is None:
+        raise RuntimeError("archive root has not been configured")
     relative = path.relative_to(ARCHIVE_ROOT)
     return relative.parts[0] if len(relative.parts) > 1 else "(archive root)"
 
 
 def collect_images() -> list[dict]:
+    if ARCHIVE_ROOT is None:
+        raise RuntimeError("archive root has not been configured")
     records: list[dict] = []
     for path in ARCHIVE_ROOT.rglob("*"):
         if not path.is_file() or path.suffix.lower() not in IMAGE_EXTENSIONS:
@@ -304,6 +311,17 @@ def build_report(payload: dict) -> str:
 
 
 def main() -> None:
+    global ARCHIVE_ROOT
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("archive_root", type=Path, help="read-only source image directory")
+    parser.add_argument("--limit", type=int, default=TRIAL_SIZE)
+    args = parser.parse_args()
+    ARCHIVE_ROOT = args.archive_root.resolve()
+    if not ARCHIVE_ROOT.is_dir():
+        raise SystemExit(f"source image directory does not exist: {ARCHIVE_ROOT}")
+    if not 1 <= args.limit <= 50:
+        raise SystemExit("--limit must be between 1 and 50")
+
     from paddleocr import PaddleOCR
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -311,7 +329,7 @@ def main() -> None:
     MODEL_CACHE.mkdir(parents=True, exist_ok=True)
 
     records = collect_images()
-    sample = choose_sample(records, TRIAL_SIZE)
+    sample = choose_sample(records, args.limit)
     manifest = {
         "created_at": datetime.now().astimezone().isoformat(),
         "archive_root": str(ARCHIVE_ROOT),
