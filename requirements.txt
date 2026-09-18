@@ -3,3 +3,5 @@ paddlepaddle==3.3.1
 Pillow==12.3.0
 PySide6==6.11.2
 opencc==1.4.2
+fastembed==0.8.0
+onnxruntime==1.29.0

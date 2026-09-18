@@ -18,7 +18,9 @@ development: the original images remain local and read-only by design.
 
 - [`progress.html`](progress.html) is the concise visual dashboard.
 - [`docs/journal/2026-09-05.md`](docs/journal/2026-09-05.md) records the detailed
-  implementation history, methods, verification, files, and commit subjects.
+  initial implementation history, methods, verification, files, and commit subjects.
+- [`docs/journal/2026-09-18.md`](docs/journal/2026-09-18.md) records the bounded
+  semantic subtitle-search experiment and measured results.
 - Experiment galleries and benchmarks remain HTML when visual presentation matters.
 
 ## Data rule
@@ -163,6 +165,105 @@ Startup deliberately separates inexpensive discovery from expensive analysis: th
 read-only incremental library check runs automatically in the background, while OCR
 remains visible, resumable, and user-controlled. The queue preview is useful both during
 initial import and after adding new files.
+
+## Semantic subtitle-search trial
+
+The first semantic experiment is deliberately separate from the desktop UI and from
+exact/partial text search. It embeds only the latest OCR `subtitle_text` for a
+deterministic sample of at most 50 present image identities. It never opens image pixels
+or writes to the source library.
+
+The local stack is FastEmbed 0.8.0 with ONNX Runtime 1.29.0 and the quantized ONNX
+`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` model (384 dimensions),
+from `qdrant/paraphrase-multilingual-MiniLM-L12-v2-onnx-Q` revision
+`faf4aa4225822f3bc6376869cb1164e8e3feedd0`. The pipeline uses mean pooling, a 512-token
+maximum, L2-normalized float32 vectors, and cosine similarity without query/document
+prefixes.
+
+Run the isolated command-line trial after the approved model has been downloaded into
+`models\fastembed`:
+
+```powershell
+.\.venv\Scripts\python.exe run_semantic_trial.py --rebuild --top-k 5 `
+  "想吃甜食" "傻眼" "很尷尬，不知道該說什麼" `
+  "朋友吵架後互相道歉" "awkward reaction" "I don't know what to say"
+```
+
+The derived index is `data\semantic-subtitle-trial.sqlite3`. Its language-neutral
+SQLite rows contain stable image IDs, relative paths, OCR subtitle text, per-text
+SHA-256 hashes, little-endian float32 vectors, and JSON version metadata. The run ID
+changes when the engine, runtime, model revision, dimensions, pipeline, schema, or
+preprocessing parameters change. A manifest covering selected image IDs, paths, and
+source-text hashes detects OCR or selection changes. Matching data is reused; `--rebuild`
+forces regeneration. The database and model cache are ignored by Git and are safe to
+delete and rebuild.
+
+The verified sample contained exactly 50 subtitles. Cached model load took about 1.1
+seconds (1.97 seconds on the first process), embedding and index creation took 2.67
+seconds, and 30 warm semantic searches had a 38 ms median and 43 ms p95. The SQLite
+index is 128 KiB, including 75 KiB of raw vector values; the local model cache is about
+240 MiB. All six unmodified evaluation queries had zero exact/partial matches in the
+full OCR catalog, making their semantic results a genuine additional search path.
+
+Results were mixed. `傻眼` found `(你是傻瓜吗？)` first (0.771), and both
+`很尷尬，不知道該說什麼` and `awkward reaction` found `感觉怪怪的 / 何か変。`
+first (0.630 and 0.621). English `I don't know what to say` found several speech-related
+Chinese/Japanese subtitles. In contrast, `想吃甜食` returned unrelated results because
+the deterministic sample contained no suitable food subtitle, and the friend-apology
+scenario produced weak generic associations. A disclosed post-hoc probe,
+`安慰心情不好的人`, ranked `別愁眉苦脸的` first (0.634).
+
+The experiment is promising for paraphrases, reactions, conversational intent, and
+cross-language queries when a relevant subtitle exists. It is not reliable for visual
+mood, expressions, people, objects, or concepts absent from the subtitle/sample. The
+small random sample and OCR noise also create misleading high scores, so no score
+threshold or desktop integration has been selected yet. Exact/partial search remains
+unchanged and should remain the primary route for known wording.
+
+### 1,000-subtitle evaluation and experimental hybrid search
+
+The second evaluation retains the same model and storage format but uses a separate
+`data\semantic-subtitle-evaluation-1000.sqlite3` index. It selects exactly 1,000 of the
+2,309 latest non-empty OCR subtitles by top-level folder: every group receives at least
+one slot, remaining slots are allocated proportionally, and content SHA-256 provides
+the stable order inside each group. This includes archive-root images, every Japan year
+folder from 2018 through 2023, CN, Anime, Game, Korean, US, stickers, and smaller groups.
+
+The fixed evaluation queries live in `semantic-evaluation-queries.json`. Run the
+reproducible evaluation with:
+
+```powershell
+.\.venv\Scripts\python.exe run_semantic_evaluation.py --rebuild --limit 1000 --top-k 5
+```
+
+The experimental hybrid uses equal-weight reciprocal-rank fusion with `k=60` over the
+semantic ranking and exact/partial/OpenCC ranking from the same sampled index. It does
+not interpret cosine similarity as probability and does not replace the existing
+full-catalog lexical search. Complete top-five results and measurements are recorded in
+`results\semantic_evaluation_1000.json`.
+
+Building 1,000 embeddings took 153.25 seconds (6.53 subtitles/second). Cached model
+startup took 1.07 seconds. The 2.07 MiB SQLite index contains 1.46 MiB of raw vectors;
+the unchanged model cache is 240 MiB. Sixteen warm semantic queries had a 57 ms median,
+and lexical fusion increased the median to 63 ms. A matching index was detected in
+0.027 seconds, excluding model startup.
+
+The larger sample was more useful than the 50-item sample: strong retrieval included
+`被嚇到` → `可怕可怕可怕`, `不想上班` → `我干不下去了`, and English
+`I don't know what to say` → `不知道该怎么回复他才好`. Failures remain important:
+the comfort query retrieved descriptions of distress rather than comforting language,
+`吐槽朋友` mostly matched the concept of “friend,” and `很無奈` returned vague
+associations. High cosine scores can therefore still be confidently wrong.
+
+Only `很開心` had literal matches in the fixed query set: seven in the full catalog and
+four in the sampled index. Hybrid fusion moved literal matches upward, while the other
+15 queries reduced to their semantic ranking. This does not yet establish a generally
+better blended ranker. The product implication is to preserve exact/partial search and,
+if exposed later, present semantic results as an explicit secondary mode or section.
+
+At the observed throughput, all 2,309 current non-empty subtitles would take roughly
+354 seconds (5.9 minutes), about 3.38 MiB of raw vectors, and approximately 4.8 MiB of
+SQLite storage, plus the existing model cache. The full archive was not embedded.
 
 ## Source control
 

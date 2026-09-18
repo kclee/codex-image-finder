@@ -1,0 +1,22 @@
+{
+  "version": "reaction-intents-v1",
+  "selection_policy": "Fixed before running the 1000-subtitle evaluation; do not edit to favor a model.",
+  "queries": [
+    {"query": "傻眼", "category": "reaction", "required": true},
+    {"query": "很尷尬，不知道該說什麼", "category": "reaction and conversation", "required": true},
+    {"query": "很無奈", "category": "reaction", "required": true},
+    {"query": "懶得理你", "category": "conversation", "required": true},
+    {"query": "被嚇到", "category": "reaction", "required": true},
+    {"query": "安慰心情不好的人", "category": "conversation", "required": true},
+    {"query": "很開心", "category": "emotion", "required": true},
+    {"query": "不想上班", "category": "situation", "required": true},
+    {"query": "吐槽朋友", "category": "conversation", "required": true},
+    {"query": "朋友講了很蠢的話", "category": "conversation", "required": true},
+    {"query": "awkward reaction", "category": "cross-language reaction", "required": true},
+    {"query": "I don't know what to say", "category": "cross-language conversation", "required": true},
+    {"query": "鼓勵別人振作", "category": "conversation", "required": false},
+    {"query": "拒絕別人的要求", "category": "conversation", "required": false},
+    {"query": "生氣警告別人", "category": "conversation", "required": false},
+    {"query": "想休息", "category": "situation", "required": false}
+  ]
+}

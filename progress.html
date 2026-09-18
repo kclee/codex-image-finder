@@ -129,13 +129,13 @@
     <header>
       <h1>Image Finder</h1>
       <p class="lede">A local search tool for finding memorable screenshots by subtitle, meaning, mood, people, and visual content—without moving or changing the originals.</p>
-      <span class="status">Standalone Python desktop selected</span>
+      <span class="status">1,000-subtitle semantic evaluation complete</span>
     </header>
 
     <section class="action-needed" aria-labelledby="next-input-heading">
       <h2 id="next-input-heading">What I need from you next</h2>
-      <p><strong>No additional architecture decision is required. The first application will be a standalone PySide6 desktop program.</strong></p>
-      <p>The next proposed step is to scaffold one native application window and the SQLite schema. The first screen will prove the folder sidebar, search bar, thumbnail grid, and preview panel before full indexing.</p>
+      <p><strong>Semantic subtitle search now appears useful as an eventual secondary search mode, while exact/partial search should remain primary for known wording.</strong></p>
+      <p>The 1,000-item evaluation is complete. No UI integration or full-archive embedding was performed.</p>
     </section>
 
     <section class="grid" aria-label="Project overview">
@@ -224,6 +224,20 @@
       </article>
 
       <article class="card wide">
+        <h2>Semantic subtitle-search evaluations</h2>
+        <ul>
+          <li><strong>Bounded input:</strong> the first 50-item trial was followed by exactly 1,000 latest OCR subtitles selected proportionally across all 19 top-level groups. No image pixels were analyzed.</li>
+          <li><strong>Local model:</strong> FastEmbed 0.8.0, ONNX Runtime 1.29.0, and 384-dimensional multilingual MiniLM at an exact recorded revision.</li>
+          <li><strong>Measured build:</strong> 153.25 seconds for 1,000 embeddings at 6.53 subtitles/second; cached model startup was 1.07 seconds.</li>
+          <li><strong>Measured search:</strong> 57 ms semantic median and 63 ms experimental-hybrid median across the fixed 16-query set.</li>
+          <li><strong>Useful examples:</strong> <code>被嚇到</code> found <code>可怕可怕可怕</code>; <code>不想上班</code> found <code>我干不下去了</code>; English queries retrieved related Chinese/Japanese subtitles.</li>
+          <li><strong>Important failures:</strong> comfort intent was confused with distress, friend-related words dominated a teasing query, and plausible-looking high scores still accompanied bad matches.</li>
+          <li><strong>Hybrid finding:</strong> only <code>很開心</code> had literal matches, so fusion changed one query and fell back to semantic ranking for the other fifteen. Keep lexical and semantic behavior visibly distinct.</li>
+          <li><strong>Decision:</strong> useful enough for an eventual secondary meaning-search mode, but not as a replacement for exact search and not with an automatic similarity threshold.</li>
+        </ul>
+      </article>
+
+      <article class="card wide">
         <h2>Standalone application requirement</h2>
         <p>The user wants a Picasa-style experience: launch one installed program from one shortcut, work in one window, and never manage a browser or server.</p>
         <ul>
@@ -286,7 +300,7 @@
           <li><div><strong>Representative OCR trial.</strong> Test 30–50 varied screenshots before scanning the full archive.</div></li>
           <li><div><strong>Basic text index.</strong> Store paths and recognized subtitles in a rebuildable local SQLite database.</div></li>
           <li><div><strong>Gallery UI.</strong> Add search, filters, thumbnails, preview, correction, copy, and open-original actions.</div></li>
-          <li><div><strong>Meaning and mood.</strong> Add multilingual semantic and visual search after the basic search works well.</div></li>
+          <li><div><strong>Meaning and mood.</strong> The 50- and 1,000-subtitle multilingual evaluations are complete; visual search remains deferred.</div></li>
           <li><div><strong>Optional enrichment.</strong> Consider face grouping, show labels, near-duplicates, collections, and automatic rescanning.</div></li>
         </ol>
       </article>
@@ -298,7 +312,7 @@
           <li>PaddleOCR as the first Chinese/Japanese OCR candidate.</li>
           <li>Preserve raw OCR and add normalized search forms.</li>
           <li>SQLite full-text search for the first index.</li>
-          <li>Semantic image/text models only after OCR evaluation.</li>
+          <li>Keep the verified subtitle-semantic experiment separate until its usefulness warrants UI integration.</li>
         </ul>
       </article>
 
@@ -314,7 +328,18 @@
 
       <article class="card wide">
         <h2>Progress journal</h2>
-        <p>Detailed implementation method, verification evidence, affected files, and commit references are recorded in the <a href="docs/journal/2026-09-05.md">September 5 development journal</a>. This page remains the concise visual dashboard.</p>
+        <p>Detailed implementation method and verification evidence are recorded in the <a href="docs/journal/2026-09-05.md">September 5 development journal</a> and the <a href="docs/journal/2026-09-18.md">September 18 semantic-search journal</a>. This page remains the concise visual dashboard.</p>
+        <div class="log-entry">
+          <time datetime="2026-09-18">September 18, 2026</time>
+          <h3>Representative 1,000-subtitle evaluation completed</h3>
+          <p><span class="check">Completed:</span> sampled all 19 top-level groups proportionally with deterministic content-hash ordering, embedded exactly 1,000 latest OCR subtitles, and evaluated a fixed 16-query set against full-catalog exact/partial search, sampled semantic search, and equal-weight reciprocal-rank fusion.</p>
+          <p><span class="check">Measured:</span> embedding took 153.25 seconds at 6.53 subtitles/second. The index is 2.07 MiB, semantic queries had a 57 ms median, hybrid queries 63 ms, and unchanged-index reuse took 0.027 seconds excluding the 1.06-second model startup.</p>
+          <p><span class="check">Finding:</span> the larger sample produced many genuinely useful paraphrase and cross-language results, but also exposed intent-direction errors, keyword dominance, OCR noise, and high-scoring false matches. Hybrid changed only the one query with literal sampled matches and is not yet proven generally superior.</p>
+          <h3>Bounded semantic subtitle-search trial completed</h3>
+          <p><span class="check">Completed:</span> built a UI-independent, local-only semantic index from exactly 50 deterministic OCR subtitles using a version-pinned 384-dimensional multilingual MiniLM ONNX model. The source catalog was opened read-only, source images were never opened or changed, and generated data remains disposable.</p>
+          <p><span class="check">Verified:</span> all 18 tests passed. Model startup was about 1.1 seconds, index creation 2.67 seconds, and 30 warm searches had a 38 ms median. Cross-language and paraphrase searches showed real value, while absent concepts and detailed situations produced misleading or weak results.</p>
+          <p><span class="check">Decision:</span> retain semantic subtitle search as a promising experiment alongside unchanged exact/partial search. Do not embed the full archive or add UI/vision analysis until the user evaluates whether the observed retrieval behavior is useful.</p>
+        </div>
         <div class="log-entry">
           <time datetime="2026-09-05">September 5, 2026</time>
           <h3>Project concept established</h3>
@@ -407,7 +432,7 @@
           <h3>Chosen sharing workflow added</h3>
           <p><span class="check">Completed:</span> added exactly the two requested inspector actions. <strong>Copy subtitle text</strong> places a Traditional Chinese conversion on the clipboard without changing raw OCR. <strong>Open containing folder</strong> selects the original in File Explorer so it can be dragged into a browser or other destination.</p>
           <p><span class="check">Verified:</span> Simplified <code>你是在教训我吗</code> converts to Traditional <code>你是在教訓我嗎</code>; all 13 tests passed, and a metadata-only UI check confirmed both actions enable correctly.</p>
-          <p><strong>Next proposed step:</strong> try real searches and sharing, then add portable favorites and semantic/mood search.</p>
+          <p><strong>Next proposed step:</strong> decide later whether to expose a clearly labeled semantic-results section in the desktop UI; exact/partial search remains unchanged.</p>
         </div>
       </article>
     </section>
