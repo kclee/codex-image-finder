@@ -151,9 +151,10 @@
     const reviewed = String(reviewedCount).padStart(3, "0");
     const total = String(context.total_result_count).padStart(3, "0");
     const shortManifest = context.sample_manifest_sha256.slice(0, 8);
+    const reportSlug = context.report_slug || "semantic-model-shootout";
     return [
       "image-finder",
-      "semantic-model-shootout",
+      reportSlug.replace(/[^a-z0-9_-]+/gi, "-"),
       context.query_set_version.replace(/[^a-z0-9_-]+/gi, "-"),
       shortManifest,
       status + "-" + reviewed + "-of-" + total,

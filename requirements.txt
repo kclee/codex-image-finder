@@ -1,8 +1,10 @@
 paddleocr==3.7.0
 paddlepaddle==3.3.1
 Pillow==12.3.0
+numpy==2.3.5
 PySide6==6.11.2
 opencc==1.4.2
 fastembed==0.8.0
 onnxruntime==1.29.0
+tokenizers==0.23.2
 psutil==7.2.2

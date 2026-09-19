@@ -50,6 +50,16 @@ from PySide6.QtWidgets import (
 
 from .analysis_queue import AnalysisQueue
 from .analysis_specs import MOBILE_SUBTITLE_SPEC
+from .app_search import (
+    SEMANTIC_INDEX_FILENAME,
+    SEMANTIC_PAGE_SIZE,
+    AppSearchService,
+    SearchMode,
+    SemanticIndexUnavailable,
+    build_application_semantic_index,
+    estimated_semantic_build_seconds,
+    load_semantic_presets,
+)
 from .catalog import Catalog
 from .domain import SearchResult
 from .review import ocr_review_reason
@@ -212,6 +222,26 @@ class OcrWorker(QObject):
             worker_catalog.close()
 
 
+class SemanticIndexWorker(QObject):
+    finished = Signal(object)
+    failed = Signal(str)
+
+    def __init__(self, database_path: Path, project_root: Path) -> None:
+        super().__init__()
+        self.database_path = database_path
+        self.project_root = project_root
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            summary = build_application_semantic_index(
+                self.database_path, self.project_root, rebuild=True
+            )
+            self.finished.emit(summary)
+        except Exception as error:
+            self.failed.emit(f"{type(error).__name__}: {error}")
+
+
 class MainWindow(QMainWindow):
     def __init__(self, catalog: Catalog, auto_scan: bool = False) -> None:
         super().__init__()
@@ -226,6 +256,14 @@ class MainWindow(QMainWindow):
         self.scan_is_automatic = False
         self.ocr_thread: QThread | None = None
         self.ocr_worker: OcrWorker | None = None
+        self.semantic_index_thread: QThread | None = None
+        self.semantic_index_worker: SemanticIndexWorker | None = None
+        self.semantic_visible_limit = SEMANTIC_PAGE_SIZE
+        self.search_service = AppSearchService(
+            self.catalog,
+            self.catalog.project_root / "data" / SEMANTIC_INDEX_FILENAME,
+            self.catalog.project_root / "models" / "fastembed",
+        )
         self.ocr_batch_size = 10
         self.next_ocr_batch_ids: list[str] = []
         self.eligible_ocr_total = 0
@@ -233,13 +271,21 @@ class MainWindow(QMainWindow):
         self.active_ocr_started_at = 0.0
         self.active_ocr_is_all = False
         self.close_after_ocr = False
-        self.setWindowTitle("Image Finder — Prototype")
+        self.setWindowTitle("Image Finder v0.1")
         self.resize(1280, 780)
 
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Search subtitle text, OCR text, or filename…")
         self.search_box.setClearButtonEnabled(True)
-        self.search_box.textChanged.connect(self.refresh_results)
+        self.search_box.textChanged.connect(self.search_text_changed)
+        self.search_box.returnPressed.connect(self.execute_search)
+
+        self.search_mode_selector = QComboBox()
+        self.search_mode_selector.addItem("Text / Literal", "literal")
+        self.search_mode_selector.addItem("Meaning / Semantic", "semantic")
+        self.search_mode_selector.currentIndexChanged.connect(self.change_search_mode)
+        self.search_button = QPushButton("Search")
+        self.search_button.clicked.connect(self.execute_search)
 
         self.review_filter_selector = QComboBox()
         self.review_filter_selector.addItem("Review: any status", None)
@@ -257,9 +303,38 @@ class MainWindow(QMainWindow):
         search_row = QWidget()
         search_layout = QHBoxLayout(search_row)
         search_layout.setContentsMargins(0, 0, 0, 0)
+        search_layout.addWidget(self.search_mode_selector)
         search_layout.addWidget(self.search_box, 1)
+        search_layout.addWidget(self.search_button)
         search_layout.addWidget(self.review_filter_selector)
         search_layout.addWidget(self.scan_button)
+
+        self.preset_row = QWidget()
+        preset_layout = QGridLayout(self.preset_row)
+        preset_layout.setContentsMargins(0, 0, 0, 0)
+        preset_layout.addWidget(QLabel("Meaning presets:"), 0, 0)
+        presets = load_semantic_presets(
+            self.catalog.project_root / "semantic-presets.json"
+        )
+        for index, preset in enumerate(presets):
+            button = QPushButton(preset.label)
+            button.setToolTip(f"Meaning search: {preset.query}")
+            button.clicked.connect(
+                lambda _checked=False, query=preset.query: self.run_semantic_preset(
+                    query
+                )
+            )
+            preset_layout.addWidget(button, index // 5, index % 5 + 1)
+
+        self.semantic_status = QLabel()
+        self.semantic_status.setWordWrap(True)
+        self.build_semantic_button = QPushButton("Build meaning index")
+        self.build_semantic_button.clicked.connect(self.start_semantic_index_build)
+        self.semantic_status_row = QWidget()
+        semantic_status_layout = QHBoxLayout(self.semantic_status_row)
+        semantic_status_layout.setContentsMargins(0, 0, 0, 0)
+        semantic_status_layout.addWidget(self.semantic_status, 1)
+        semantic_status_layout.addWidget(self.build_semantic_button)
 
         self.ocr_button = QPushButton(f"OCR next {self.ocr_batch_size}")
         self.ocr_button.setToolTip(
@@ -345,6 +420,19 @@ class MainWindow(QMainWindow):
             QAbstractItemView.SelectionMode.NoSelection
         )
 
+        self.ocr_tools_button = QPushButton("OCR tools")
+        self.ocr_tools_button.setCheckable(True)
+        self.ocr_tools_button.setToolTip("Show or hide advanced OCR processing controls")
+        self.ocr_tools_panel = QWidget()
+        ocr_tools_layout = QVBoxLayout(self.ocr_tools_panel)
+        ocr_tools_layout.setContentsMargins(0, 0, 0, 0)
+        ocr_tools_layout.addWidget(ocr_row)
+        ocr_tools_layout.addWidget(preview_header)
+        ocr_tools_layout.addWidget(self.ocr_preview)
+        ocr_tools_layout.addWidget(self.ocr_estimate_label)
+        self.ocr_tools_button.toggled.connect(self.ocr_tools_panel.setVisible)
+        self.ocr_tools_panel.hide()
+
         self.folder_tree = QTreeWidget()
         self.folder_tree.setHeaderLabel("Folders")
         all_item = QTreeWidgetItem(["All images"])
@@ -360,27 +448,32 @@ class MainWindow(QMainWindow):
         self.gallery.setViewMode(QListView.ViewMode.IconMode)
         self.gallery.setResizeMode(QListView.ResizeMode.Adjust)
         self.gallery.setMovement(QListView.Movement.Static)
-        self.gallery.setIconSize(QPixmap(220, 124).size())
-        self.gallery.setGridSize(QPixmap(250, 176).size())
+        self.gallery.setIconSize(QPixmap(260, 146).size())
+        self.gallery.setGridSize(QPixmap(290, 205).size())
         self.gallery.setWordWrap(True)
         self.gallery.setUniformItemSizes(True)
         self.gallery.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.gallery.selectionModel().currentChanged.connect(self.show_result)
+        self.gallery.doubleClicked.connect(self.open_original_image)
 
         self.count_label = QLabel()
+        self.more_results_button = QPushButton("More meaning results")
+        self.more_results_button.clicked.connect(self.show_more_semantic_results)
+        self.more_results_button.hide()
         self.scan_progress = QProgressBar()
         self.scan_progress.setRange(0, 0)
         self.scan_progress.hide()
         center = QWidget()
         center_layout = QVBoxLayout(center)
         center_layout.addWidget(search_row)
-        center_layout.addWidget(ocr_row)
-        center_layout.addWidget(preview_header)
-        center_layout.addWidget(self.ocr_preview)
-        center_layout.addWidget(self.ocr_estimate_label)
+        center_layout.addWidget(self.preset_row)
+        center_layout.addWidget(self.semantic_status_row)
+        center_layout.addWidget(self.ocr_tools_button)
+        center_layout.addWidget(self.ocr_tools_panel)
         center_layout.addWidget(self.scan_progress)
         center_layout.addWidget(self.count_label)
         center_layout.addWidget(self.gallery, 1)
+        center_layout.addWidget(self.more_results_button)
 
         self.preview = QLabel("Select an image")
         self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -429,10 +522,14 @@ class MainWindow(QMainWindow):
         self.open_folder_button = QPushButton("Open containing folder")
         self.open_folder_button.setEnabled(False)
         self.open_folder_button.clicked.connect(self.open_containing_folder)
+        self.open_image_button = QPushButton("Open image")
+        self.open_image_button.setEnabled(False)
+        self.open_image_button.clicked.connect(self.open_original_image)
         file_actions = QWidget()
         file_actions_layout = QHBoxLayout(file_actions)
         file_actions_layout.setContentsMargins(0, 0, 0, 0)
         file_actions_layout.addWidget(self.copy_subtitle_button)
+        file_actions_layout.addWidget(self.open_image_button)
         file_actions_layout.addWidget(self.open_folder_button)
 
         right = QWidget()
@@ -457,10 +554,173 @@ class MainWindow(QMainWindow):
         layout.addWidget(splitter)
         self.setCentralWidget(container)
         self.statusBar().showMessage("Source images are read-only; displayed data is rebuildable.")
-        self.refresh_results()
+        self.refresh_semantic_index_status()
+        self.change_search_mode(0)
         self.refresh_ocr_status()
         if auto_scan:
             QTimer.singleShot(0, self.start_startup_scan)
+
+    def current_search_mode(self) -> SearchMode:
+        return str(self.search_mode_selector.currentData())  # type: ignore[return-value]
+
+    def search_text_changed(self, _text: str) -> None:
+        self.semantic_visible_limit = SEMANTIC_PAGE_SIZE
+        if self.current_search_mode() == "literal":
+            self.refresh_results()
+            return
+        self.gallery_model.replace([])
+        self.count_label.setText("Meaning search: press Enter or choose a preset")
+        self.more_results_button.hide()
+        self.refresh_ocr_preview()
+
+    def change_search_mode(self, _index: int) -> None:
+        semantic = self.current_search_mode() == "semantic"
+        self.preset_row.setVisible(semantic)
+        self.semantic_status_row.setVisible(semantic)
+        self.search_box.setPlaceholderText(
+            "Describe the meaning or reaction, then press Enter…"
+            if semantic
+            else "Search subtitle text, OCR text, or filename…"
+        )
+        self.semantic_visible_limit = SEMANTIC_PAGE_SIZE
+        if semantic and self.search_box.text().strip():
+            self.execute_search()
+        else:
+            self.refresh_results()
+
+    def execute_search(self) -> None:
+        self.semantic_visible_limit = SEMANTIC_PAGE_SIZE
+        self.refresh_results()
+
+    def run_semantic_preset(self, query: str) -> None:
+        self.search_mode_selector.setCurrentIndex(
+            self.search_mode_selector.findData("semantic")
+        )
+        self.search_box.setText(query)
+        self.execute_search()
+
+    def show_more_semantic_results(self) -> None:
+        self.semantic_visible_limit += SEMANTIC_PAGE_SIZE
+        self.refresh_results()
+
+    def refresh_semantic_index_status(self) -> None:
+        status = self.search_service.index_status()
+        estimate = estimated_semantic_build_seconds(status.eligible_count)
+        if status.ready:
+            self.semantic_status.setText(
+                f"Meaning index ready · {status.indexed_count:,} OCR subtitles · "
+                "local MiniLM"
+            )
+            self.build_semantic_button.setText("Update meaning index")
+        else:
+            reasons = {
+                "missing": "not built",
+                "source_changed": "OCR subtitles changed",
+                "incomplete": "incomplete",
+                "version_mismatch": "model or pipeline changed",
+                "metadata_mismatch": "metadata changed",
+                "unreadable": "cannot be read",
+            }
+            self.semantic_status.setText(
+                f"Meaning index {reasons.get(status.reason, status.reason)} · "
+                f"{status.eligible_count:,} eligible subtitles · estimated "
+                f"{estimate / 60:.1f} minutes to build"
+            )
+            self.build_semantic_button.setText("Build meaning index")
+        self.build_semantic_button.setEnabled(
+            not (
+                self.semantic_index_thread
+                and self.semantic_index_thread.isRunning()
+            )
+        )
+
+    def start_semantic_index_build(self) -> None:
+        if self.semantic_index_thread and self.semantic_index_thread.isRunning():
+            return
+        if self.scan_thread and self.scan_thread.isRunning():
+            QMessageBox.information(
+                self,
+                "Library check in progress",
+                "Wait for the current library check to finish before building the meaning index.",
+            )
+            return
+        if self.ocr_thread and self.ocr_thread.isRunning():
+            QMessageBox.information(
+                self,
+                "OCR in progress",
+                "Pause or finish OCR before building the meaning index.",
+            )
+            return
+        status = self.search_service.index_status()
+        estimate = estimated_semantic_build_seconds(status.eligible_count)
+        answer = QMessageBox.question(
+            self,
+            "Build local meaning index",
+            f"Build MiniLM embeddings for {status.eligible_count:,} OCR subtitles?\n\n"
+            f"Estimated time: {estimate / 60:.1f} minutes. The generated SQLite "
+            "index stays inside this project and source images are not opened or changed.",
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        self.build_semantic_button.setEnabled(False)
+        self.search_mode_selector.setEnabled(False)
+        self.search_button.setEnabled(False)
+        self.scan_button.setEnabled(False)
+        self.ocr_button.setEnabled(False)
+        self.ocr_all_button.setEnabled(False)
+        self.scan_progress.setRange(0, 0)
+        self.scan_progress.setFormat("Building local MiniLM meaning index…")
+        self.scan_progress.show()
+        self.semantic_status.setText(
+            f"Building {status.eligible_count:,} subtitle embeddings locally…"
+        )
+        self.search_service.reset_model()
+
+        self.semantic_index_thread = QThread(self)
+        self.semantic_index_worker = SemanticIndexWorker(
+            self.catalog.database_path, self.catalog.project_root
+        )
+        self.semantic_index_worker.moveToThread(self.semantic_index_thread)
+        self.semantic_index_thread.started.connect(self.semantic_index_worker.run)
+        self.semantic_index_worker.finished.connect(self.finish_semantic_index_build)
+        self.semantic_index_worker.failed.connect(self.fail_semantic_index_build)
+        self.semantic_index_worker.finished.connect(self.semantic_index_thread.quit)
+        self.semantic_index_worker.failed.connect(self.semantic_index_thread.quit)
+        self.semantic_index_thread.finished.connect(
+            self.semantic_index_worker.deleteLater
+        )
+        self.semantic_index_thread.finished.connect(
+            self.semantic_index_thread.deleteLater
+        )
+        self.semantic_index_thread.start()
+
+    def finish_semantic_index_build(self, summary: object) -> None:
+        self.scan_progress.hide()
+        self.search_mode_selector.setEnabled(True)
+        self.search_button.setEnabled(True)
+        self.scan_button.setEnabled(True)
+        self.search_service.reset_model()
+        self.semantic_index_worker = None
+        self.semantic_index_thread = None
+        self.refresh_semantic_index_status()
+        self.refresh_ocr_status()
+        self.refresh_results()
+        self.statusBar().showMessage(
+            f"Meaning index ready · {summary.sample_size:,} subtitles · "
+            f"{summary.total_seconds:.1f}s"
+        )
+
+    def fail_semantic_index_build(self, message: str) -> None:
+        self.scan_progress.hide()
+        self.search_mode_selector.setEnabled(True)
+        self.search_button.setEnabled(True)
+        self.scan_button.setEnabled(True)
+        self.semantic_index_worker = None
+        self.semantic_index_thread = None
+        self.refresh_semantic_index_status()
+        self.refresh_ocr_status()
+        QMessageBox.critical(self, "Meaning index build failed", message)
 
     def change_needs_review_filter(self, checked: bool) -> None:
         if checked and self.review_filter_selector.currentData() is not None:
@@ -553,6 +813,7 @@ class MainWindow(QMainWindow):
         self.batch_size_selector.setEnabled(True)
         self.retry_ocr_button.setEnabled(True)
         self.populate_groups()
+        self.refresh_semantic_index_status()
         self.refresh_results()
         prefix = (
             "Background library check complete"
@@ -825,6 +1086,7 @@ class MainWindow(QMainWindow):
         self.pause_ocr_button.setEnabled(False)
         self.refresh_ocr_status()
         self.recent_ocr_button.setChecked(True)
+        self.refresh_semantic_index_status()
         self.refresh_results()
         if summary["processed"] == 0:
             self.statusBar().showMessage("No unprocessed images in the current view")
@@ -868,7 +1130,33 @@ class MainWindow(QMainWindow):
         self.refresh_results()
 
     def refresh_results(self) -> None:
-        results = self.catalog.search(self.search_box.text(), self.current_group)
+        mode = self.current_search_mode()
+        try:
+            if mode == "semantic":
+                QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+                QApplication.processEvents()
+            page = self.search_service.search(
+                self.search_box.text(),
+                mode,
+                self.current_group,
+                visible_limit=self.semantic_visible_limit,
+            )
+            results = [match.result for match in page.matches]
+        except SemanticIndexUnavailable as error:
+            results = []
+            page = None
+            self.count_label.setText(
+                f"Meaning search unavailable · index {error.status.reason.replace('_', ' ')}"
+            )
+            self.more_results_button.hide()
+        except Exception as error:
+            results = []
+            page = None
+            self.count_label.setText(f"Search failed · {type(error).__name__}: {error}")
+            self.more_results_button.hide()
+        finally:
+            if mode == "semantic" and QApplication.overrideCursor() is not None:
+                QApplication.restoreOverrideCursor()
         if self.recent_ocr_button.isChecked():
             recent_ids = self.catalog.latest_analysis_batch_image_ids(
                 MOBILE_SUBTITLE_SPEC.run_id
@@ -892,9 +1180,22 @@ class MainWindow(QMainWindow):
                 if decisions.get(result.image_id) == decision_filter
             ]
         self.gallery_model.replace(results)
-        self.count_label.setText(
-            f"Gallery: {len(results):,} image{'s' if len(results) != 1 else ''}"
-        )
+        if page is not None:
+            if mode == "semantic":
+                self.count_label.setText(
+                    f"Meaning results: showing {len(results):,} of {page.total:,} "
+                    "ranked OCR subtitles"
+                )
+                self.more_results_button.setVisible(page.has_more)
+                self.more_results_button.setText(
+                    f"More meaning results (+{SEMANTIC_PAGE_SIZE})"
+                )
+            else:
+                self.count_label.setText(
+                    f"Text results: {len(results):,} image"
+                    f"{'s' if len(results) != 1 else ''}"
+                )
+                self.more_results_button.hide()
         self.refresh_ocr_preview()
 
     def show_result(self, current: QModelIndex, _previous: QModelIndex) -> None:
@@ -913,6 +1214,7 @@ class MainWindow(QMainWindow):
             self.details.clear()
             self.refresh_review_controls(False)
             self.copy_subtitle_button.setEnabled(False)
+            self.open_image_button.setEnabled(False)
             self.open_folder_button.setEnabled(False)
             return
 
@@ -952,6 +1254,7 @@ class MainWindow(QMainWindow):
         self.refresh_review_controls(
             any(record.run_id == MOBILE_SUBTITLE_SPEC.run_id for record in history)
         )
+        self.open_image_button.setEnabled(result.absolute_path.is_file())
         self.open_folder_button.setEnabled(result.absolute_path.is_file())
 
     def refresh_review_controls(self, has_current_ocr: bool) -> None:
@@ -1071,7 +1374,24 @@ class MainWindow(QMainWindow):
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.parent)))
         self.statusBar().showMessage("Opened the containing folder")
 
+    def open_original_image(self, _index: QModelIndex | None = None) -> None:
+        if self.current_result is None:
+            return
+        path = self.current_result.absolute_path
+        if not path.is_file():
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+        self.statusBar().showMessage("Opened the original image read-only")
+
     def closeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        if self.semantic_index_thread and self.semantic_index_thread.isRunning():
+            QMessageBox.information(
+                self,
+                "Meaning index build in progress",
+                "Keep Image Finder open until the local meaning index build finishes.",
+            )
+            event.ignore()
+            return
         if self.ocr_thread and self.ocr_thread.isRunning():
             self.close_after_ocr = True
             self.pause_ocr()

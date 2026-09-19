@@ -23,6 +23,7 @@ INDEX_SCHEMA_VERSION = 1
 PIPELINE_VERSION = "ocr-subtitle-semantic-v1"
 EVALUATION_PIPELINE_VERSION = "ocr-subtitle-semantic-stratified-v2"
 SHOOTOUT_PIPELINE_VERSION = "ocr-subtitle-semantic-model-shootout-v1"
+APPLICATION_PIPELINE_VERSION = "ocr-subtitle-semantic-application-v1"
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 MODEL_SOURCE = "qdrant/paraphrase-multilingual-MiniLM-L12-v2-onnx-Q"
 MODEL_REVISION = "faf4aa4225822f3bc6376869cb1164e8e3feedd0"
@@ -105,6 +106,15 @@ class BuildSummary:
 
 
 @dataclass(frozen=True, slots=True)
+class SemanticIndexStatus:
+    ready: bool
+    reason: str
+    eligible_count: int
+    indexed_count: int
+    manifest_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
 class SemanticResult:
     image_id: str
     relative_path: str
@@ -134,6 +144,8 @@ class FastEmbedder:
     def __init__(self, cache_dir: Path, spec: SemanticSpec) -> None:
         from fastembed import TextEmbedding
         from fastembed.common.model_description import ModelSource, PoolingType
+
+        self.spec = spec
 
         installed = {
             "fastembed": importlib.metadata.version("fastembed"),
@@ -206,7 +218,8 @@ class FastEmbedder:
         )
 
     def embed(self, texts: Sequence[str]) -> Sequence[Sequence[float]]:
-        return list(self._model.embed(list(texts)))
+        batch_size = int(self.spec.parameters.get("batch_size", 256))
+        return list(self._model.embed(list(texts), batch_size=batch_size))
 
 
 def _latest_subtitle_rows(catalog_path: Path) -> list[sqlite3.Row]:
@@ -323,6 +336,12 @@ def representative_subtitle_sample(
     return [_candidate(row) for row in selected]
 
 
+def all_subtitle_candidates(catalog_path: Path) -> list[SubtitleCandidate]:
+    """Return every present image with a non-empty latest OCR subtitle."""
+
+    return [_candidate(row) for row in _latest_subtitle_rows(catalog_path)]
+
+
 def sample_distribution(candidates: Sequence[SubtitleCandidate]) -> dict[str, int]:
     counts = Counter(_top_level_group(item.relative_path) for item in candidates)
     return dict(sorted(counts.items(), key=lambda item: item[0].casefold()))
@@ -343,6 +362,29 @@ def evaluation_spec() -> SemanticSpec:
     return replace(
         base,
         pipeline_version=EVALUATION_PIPELINE_VERSION,
+        parameters=parameters,
+    )
+
+
+def application_spec() -> SemanticSpec:
+    """Pinned MiniLM configuration for the complete eligible v0.1 catalog."""
+
+    base = SemanticSpec()
+    parameters = dict(base.parameters)
+    parameters.update(
+        {
+            "sampling_strategy": "all-current-subtitles-content-sha256-v1",
+            "sample_order": "images.content_sha256 ASC",
+            "maximum_sample_size": "all eligible current OCR subtitles",
+            "license": "apache-2.0",
+            "model_file": "onnx/model.onnx",
+            "quantization": "dynamic-int8",
+            "batch_size": 32,
+        }
+    )
+    return replace(
+        base,
+        pipeline_version=APPLICATION_PIPELINE_VERSION,
         parameters=parameters,
     )
 
@@ -500,7 +542,9 @@ def build_trial_index(
     total_started = time.perf_counter()
     selection_started = time.perf_counter()
     strategy = spec.parameters.get("sampling_strategy", "content-sha256-global-v1")
-    if strategy == "top-level-proportional-min1-content-sha256-v1":
+    if strategy == "all-current-subtitles-content-sha256-v1":
+        candidates = all_subtitle_candidates(catalog_path)
+    elif strategy == "top-level-proportional-min1-content-sha256-v1":
         candidates = representative_subtitle_sample(catalog_path, limit)
     else:
         candidates = deterministic_subtitle_sample(catalog_path, limit)
@@ -585,6 +629,68 @@ def build_trial_index(
         embedding_seconds=embedding_seconds,
         total_seconds=time.perf_counter() - total_started,
         reused=False,
+    )
+
+
+def semantic_index_status(
+    catalog_path: Path,
+    index_path: Path,
+    spec: SemanticSpec,
+) -> SemanticIndexStatus:
+    """Compare a derived index with the current eligible OCR subtitle manifest."""
+
+    candidates = all_subtitle_candidates(catalog_path)
+    manifest_sha256 = _manifest_hash(candidates)
+    if not index_path.is_file():
+        return SemanticIndexStatus(
+            ready=False,
+            reason="missing",
+            eligible_count=len(candidates),
+            indexed_count=0,
+            manifest_sha256=manifest_sha256,
+        )
+
+    uri = index_path.resolve().as_uri() + "?mode=ro"
+    try:
+        connection = sqlite3.connect(uri, uri=True)
+        connection.row_factory = sqlite3.Row
+        try:
+            run = connection.execute(
+                "SELECT spec_json, manifest_sha256, sample_size "
+                "FROM semantic_runs WHERE id=?",
+                (spec.version_id,),
+            ).fetchone()
+            indexed_count = connection.execute(
+                "SELECT COUNT(*) FROM subtitle_embeddings WHERE run_id=?",
+                (spec.version_id,),
+            ).fetchone()[0]
+        finally:
+            connection.close()
+    except sqlite3.Error:
+        return SemanticIndexStatus(
+            ready=False,
+            reason="unreadable",
+            eligible_count=len(candidates),
+            indexed_count=0,
+            manifest_sha256=manifest_sha256,
+        )
+
+    if run is None:
+        reason = "version_mismatch"
+    elif json.loads(run["spec_json"]) != spec.as_dict():
+        reason = "metadata_mismatch"
+    elif run["manifest_sha256"] != manifest_sha256:
+        reason = "source_changed"
+    elif indexed_count != len(candidates) or int(run["sample_size"]) != len(candidates):
+        reason = "incomplete"
+    else:
+        reason = "ready"
+    return SemanticIndexStatus(
+        ready=reason == "ready",
+        reason=reason,
+        eligible_count=len(candidates),
+        indexed_count=int(indexed_count),
+        manifest_sha256=manifest_sha256,
     )
 
 

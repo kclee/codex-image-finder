@@ -10,9 +10,16 @@ from typing import Sequence
 from PIL import Image
 
 from image_finder.catalog import Catalog
+from image_finder.app_search import (
+    AppSearchService,
+    SemanticIndexUnavailable,
+    load_semantic_presets,
+)
 from image_finder.semantic_search import (
     MAX_TRIAL_IMAGES,
     SemanticSpec,
+    all_subtitle_candidates,
+    application_spec,
     build_trial_index,
     deterministic_subtitle_sample,
     hybrid_search,
@@ -21,6 +28,7 @@ from image_finder.semantic_search import (
     representative_subtitle_sample,
     sample_distribution,
     semantic_search,
+    semantic_index_status,
 )
 
 
@@ -347,6 +355,153 @@ class ExistingTextSearchRegressionTests(unittest.TestCase):
                     [item.relative_path for item in catalog.search("教訓")],
                     ["beta.png"],
                 )
+            finally:
+                catalog.close()
+
+
+class ApplicationSearchTests(unittest.TestCase):
+    @staticmethod
+    def application_fake_spec() -> SemanticSpec:
+        base = fake_spec()
+        return replace(
+            base,
+            pipeline_version="synthetic-application-v1",
+            parameters=dict(
+                base.parameters,
+                sampling_strategy="all-current-subtitles-content-sha256-v1",
+                maximum_sample_size="all eligible current OCR subtitles",
+            ),
+        )
+
+    def test_application_spec_pins_full_catalog_minilm(self) -> None:
+        spec = application_spec()
+        self.assertEqual(spec.dimensions, 384)
+        self.assertEqual(
+            spec.parameters["sampling_strategy"],
+            "all-current-subtitles-content-sha256-v1",
+        )
+        self.assertEqual(
+            spec.parameters["maximum_sample_size"],
+            "all eligible current OCR subtitles",
+        )
+        self.assertEqual(spec.parameters["batch_size"], 32)
+
+    def test_full_application_index_status_detects_missing_ready_and_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project, catalog_path = make_catalog(
+                root,
+                {"one.png": "合成第一句", "two.png": "合成第二句"},
+            )
+            index_path = project / "data" / "application-semantic.sqlite3"
+            spec = self.application_fake_spec()
+            missing = semantic_index_status(catalog_path, index_path, spec)
+            self.assertFalse(missing.ready)
+            self.assertEqual(missing.reason, "missing")
+            self.assertEqual(len(all_subtitle_candidates(catalog_path)), 2)
+
+            embedder = FakeEmbedder(
+                {"合成第一句": [1, 0], "合成第二句": [0, 1]}
+            )
+            build_trial_index(catalog_path, index_path, embedder, spec)
+            ready = semantic_index_status(catalog_path, index_path, spec)
+            self.assertTrue(ready.ready)
+            self.assertEqual(ready.indexed_count, 2)
+
+            connection = sqlite3.connect(catalog_path)
+            connection.execute(
+                "UPDATE analysis_results SET subtitle_text='合成已改變', "
+                "all_text='合成已改變' WHERE subtitle_text='合成第一句'"
+            )
+            connection.commit()
+            connection.close()
+            stale = semantic_index_status(catalog_path, index_path, spec)
+            self.assertFalse(stale.ready)
+            self.assertEqual(stale.reason, "source_changed")
+
+    def test_literal_semantic_presets_and_more_keep_rank_order(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project, catalog_path = make_catalog(
+                root,
+                {
+                    "reaction.png": "合成驚訝字幕",
+                    "middle.png": "合成普通字幕",
+                    "other.png": "合成其他字幕",
+                },
+            )
+            source_files = list((root / "library").glob("*.png"))
+            source_bytes = {path: path.read_bytes() for path in source_files}
+            index_path = project / "data" / "application-semantic.sqlite3"
+            spec = self.application_fake_spec()
+            embedder = FakeEmbedder(
+                {
+                    "合成驚訝字幕": [1, 0],
+                    "合成普通字幕": [0.7, 0.3],
+                    "合成其他字幕": [0, 1],
+                    "驚訝反應": [1, 0],
+                }
+            )
+            build_trial_index(catalog_path, index_path, embedder, spec)
+            catalog = Catalog(catalog_path, project)
+            try:
+                service = AppSearchService(
+                    catalog,
+                    index_path,
+                    project / "models",
+                    spec=spec,
+                    embedder_factory=lambda: embedder,
+                )
+                literal = service.search("普通", "literal")
+                self.assertEqual(
+                    [match.result.relative_path for match in literal.matches],
+                    ["middle.png"],
+                )
+
+                first = service.search(
+                    "驚訝反應", "semantic", visible_limit=2
+                )
+                expanded = service.search(
+                    "驚訝反應", "semantic", visible_limit=3
+                )
+                self.assertTrue(first.has_more)
+                self.assertFalse(expanded.has_more)
+                self.assertEqual(
+                    [match.result.image_id for match in first.matches],
+                    [match.result.image_id for match in expanded.matches[:2]],
+                )
+                self.assertEqual(
+                    expanded.matches[0].result.relative_path, "reaction.png"
+                )
+                for path, payload in source_bytes.items():
+                    self.assertEqual(path.read_bytes(), payload)
+            finally:
+                catalog.close()
+
+            presets = load_semantic_presets(
+                Path(__file__).resolve().parents[1] / "semantic-presets.json"
+            )
+            self.assertEqual(
+                {preset.label: preset.query for preset in presets}["無奈"],
+                "很無奈",
+            )
+
+    def test_missing_semantic_index_is_reported_clearly(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project, catalog_path = make_catalog(root, {"one.png": "合成字幕"})
+            catalog = Catalog(catalog_path, project)
+            try:
+                service = AppSearchService(
+                    catalog,
+                    project / "data" / "missing.sqlite3",
+                    project / "models",
+                    spec=self.application_fake_spec(),
+                    embedder_factory=lambda: FakeEmbedder({}),
+                )
+                with self.assertRaises(SemanticIndexUnavailable) as raised:
+                    service.search("合成概念", "semantic")
+                self.assertEqual(raised.exception.status.reason, "missing")
             finally:
                 catalog.close()
 

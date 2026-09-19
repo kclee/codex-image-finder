@@ -79,6 +79,11 @@ assert.match(
   review.suggestedFileName(context, 2, "2026-09-18"),
   /complete-002-of-002-2026-09-18\.json$/
 );
+const visualContext = Object.assign({}, context, { report_slug: "visual-semantic-supplemental" });
+assert.match(
+  review.suggestedFileName(visualContext, 1, "2026-09-18"),
+  /^image-finder-visual-semantic-supplemental-/
+);
 
 const wrongManifest = JSON.parse(JSON.stringify(exported));
 wrongManifest.sample_manifest_sha256 = "different";

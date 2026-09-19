@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "presets": [
+    {"label": "傻眼", "query": "傻眼"},
+    {"label": "無奈", "query": "很無奈"},
+    {"label": "尷尬", "query": "很尷尬，不知道該說什麼"},
+    {"label": "開心", "query": "很開心"},
+    {"label": "嚇到", "query": "被嚇到"},
+    {"label": "吐槽", "query": "吐槽朋友"},
+    {"label": "不想上班", "query": "不想上班"},
+    {"label": "懶得理你", "query": "懶得理你"},
+    {"label": "不知道說什麼", "query": "不知道該說什麼"},
+    {"label": "想休息", "query": "想休息"}
+  ]
+}

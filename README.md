@@ -43,7 +43,7 @@ exception described below; they remain portable and should be backed up.
 - Persistent interchange uses SQLite, JSON, and ordinary files rather than Python-only
   serialization such as pickle.
 
-## Run the prototype
+## Run Image Finder v0.1
 
 Double-click `start-image-finder.cmd`, or run:
 
@@ -51,10 +51,36 @@ Double-click `start-image-finder.cmd`, or run:
 .\.venv\Scripts\python.exe run_image_finder.py
 ```
 
-The current prototype imports the existing 40-image OCR trial into a disposable SQLite
-catalog during development, then supports subtitle/text filtering, folder filtering,
-preview, and opening the original file. Normal application startup now opens the existing
-catalog without importing trial data. Delete `data\image-finder.sqlite3` to rebuild it.
+Image Finder opens the existing local catalog without importing trial data. The main
+workflow is intentionally simple:
+
+1. **Text / Literal** searches exact and partial OCR text as you type, including local
+   Traditional/Simplified Chinese query variants.
+2. **Meaning / Semantic** searches OCR subtitle meaning with the local multilingual
+   MiniLM model. Enter a query or choose a preset, then press Enter or **Search**.
+3. Meaning search initially shows 24 stable ranked results. **More** adds the next 24
+   without changing results already shown.
+4. Select a thumbnail for the larger preview. Double-click it or use **Open image** to
+   open the original in the default viewer; **Open containing folder** reveals it in
+   Explorer for sharing or drag-and-drop.
+5. Advanced OCR and review controls remain available under the collapsed **OCR tools**
+   section.
+
+The editable meaning presets live in `semantic-presets.json`. The semantic index is
+derived local data at `data\semantic-subtitle-v0.1.sqlite3`. If it is missing or stale,
+Meaning mode explains why and offers an explicit **Build meaning index** action with an
+estimate; ordinary startup, browsing, and literal search never trigger that work. The
+same operation is available from the command line:
+
+```powershell
+.\.venv\Scripts\python.exe build_semantic_index.py --rebuild
+```
+
+The index uses only current non-empty OCR subtitles. It never opens image pixels or
+writes to the source collection, and it can be deleted and rebuilt at any time. Model
+files remain local under `models\fastembed`; generated data and caches remain ignored
+by Git. Delete `data\image-finder.sqlite3` only when intentionally rebuilding the main
+catalog.
 
 Use **Add / scan folder…** to discover a complete library. Scanning reads source files
 but never writes below the selected library root. New or changed files receive an exact
@@ -213,8 +239,26 @@ The experiment is promising for paraphrases, reactions, conversational intent, a
 cross-language queries when a relevant subtitle exists. It is not reliable for visual
 mood, expressions, people, objects, or concepts absent from the subtitle/sample. The
 small random sample and OCR noise also create misleading high scores, so no score
-threshold or desktop integration has been selected yet. Exact/partial search remains
-unchanged and should remain the primary route for known wording.
+threshold has been selected. Exact/partial search remains unchanged and is the primary
+route for known wording.
+
+### First usable semantic desktop integration
+
+After the bounded evaluations and human review, v0.1 exposes MiniLM as an explicit
+optional **Meaning / Semantic** mode while preserving **Text / Literal** as the default.
+It embeds all 2,309 current non-empty OCR subtitles, not image pixels. The application
+spec pins the model revision and 384 dimensions described above, mean pooling, L2
+normalization, cosine ranking, dynamic-int8 ONNX, a 512-token maximum, a controlled
+batch size of 32, the index schema/pipeline version, and the complete source-text
+manifest. A change to those settings or the current OCR subtitle text marks the index
+stale and requires an explicit rebuild.
+
+The verified local rebuild completed in 466.9 seconds and produced a 4,968,448-byte
+SQLite file. A cold semantic search, including local model initialization, took about
+1.31 seconds; representative warm searches took about 166–183 ms. Literal search was
+independently rechecked, and expanding from 24 to 48 semantic results preserved the
+first 24 identities exactly. These measurements are machine-specific. Visual/SigLIP
+search remains parked and is not part of the v0.1 desktop application.
 
 ### 1,000-subtitle evaluation and experimental hybrid search
 
@@ -316,8 +360,42 @@ rankings, use:
 ```
 
 Cosine values are reference ranking scores only and must not be compared across model
-families as probabilities. No permanent winner has been selected; manual image review
-is the next decision point.
+families as probabilities. The completed human review retained MiniLM as the practical
+subtitle baseline while confirming that none of the text models is reliable enough to
+replace exact/partial search.
+
+### Bounded visual-semantic experiment
+
+The follow-up experiment is also separate from the desktop UI. It uses only the 148
+unique image identities already represented in the completed human review and runs the
+unchanged 16-query set against local image embeddings:
+
+```powershell
+.\.venv\Scripts\python.exe run_visual_semantic_experiment.py --rebuild
+```
+
+The selected model is revision-pinned SigLIP 2 Base Patch16 224 using separate int8
+ONNX image and text towers. Images are resized directly to 224×224 RGB, normalized with
+the recorded SigLIP parameters, embedded to 768-dimensional L2-normalized float32
+vectors, and stored in a separate disposable SQLite index. The source images are opened
+read-only for inference and then content-hash verified.
+
+The 148-image build took about 31 seconds at 4.84 images/second. The selected local
+model package is about 397 MiB, the SQLite index is about 632 KiB, and an unchanged-index
+run had about 11 ms median end-to-end query latency. The measured peak process working
+set was about 779 MiB; releasing the one-time vision session reduced the post-build
+working set substantially. At the same throughput, the current 3,335-image catalog is
+estimated at roughly 11.5 minutes and about 9.8 MiB of raw vectors, but it was not run.
+
+Existing labels cover exact reviewed query-image pairs only. Most visual Top-5 results
+were new, so they remain explicitly Unreviewed rather than being counted as failures.
+The ignored `visual-semantic-reviewed-set.html` report shows visual Top-10 results and
+provides the same durable localStorage and JSON export/import workflow. The completed
+33-result supplemental review produced 4 Useful, 10 Maybe, and 19 Not useful judgments.
+Across the 11 priority queries, visual Top-3 Useful-or-Maybe rates were 40.0% for reaction
+queries and 38.9% for conversational intent, below MiniLM's 60.0% and 72.2% respectively.
+This does not justify fusion, UI integration, or full-library visual indexing with the
+tested model configuration.
 
 ## Source control
 
