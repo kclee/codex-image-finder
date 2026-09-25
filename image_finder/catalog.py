@@ -317,7 +317,8 @@ class Catalog:
         rows = self.connection.execute(
             f"""
             SELECT i.id AS image_id, fl.relative_path, fl.observed_full_path,
-                   i.width, i.height, ar.all_text, ar.subtitle_text, ar.confidence,
+                   i.width, i.height, fl.source_modified_ns,
+                   ar.all_text, ar.subtitle_text, ar.confidence,
                    ar.run_id AS analysis_run_id, ar.created_at AS analysis_created_at,
                    analysis_run.engine_name AS analysis_engine,
                    analysis_run.model_name AS analysis_model,
@@ -360,6 +361,7 @@ class Catalog:
                     group_name=self._group_from_path(relative_path),
                     width=row["width"],
                     height=row["height"],
+                    source_modified_ns=row["source_modified_ns"],
                     all_text=row["all_text"] or "",
                     subtitle_text=row["subtitle_text"] or "",
                     confidence=row["confidence"],

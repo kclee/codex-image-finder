@@ -15,6 +15,7 @@ class SearchResult:
     group_name: str
     width: int
     height: int
+    source_modified_ns: int | None
     all_text: str
     subtitle_text: str
     confidence: float | None

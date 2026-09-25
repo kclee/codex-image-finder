@@ -5,11 +5,26 @@
     {"label": "無奈", "query": "很無奈"},
     {"label": "尷尬", "query": "很尷尬，不知道該說什麼"},
     {"label": "開心", "query": "很開心"},
+    {"label": "大笑 / 好笑", "query": "大笑，覺得很好笑"},
+    {"label": "生氣", "query": "很生氣"},
+    {"label": "難過", "query": "很難過"},
     {"label": "嚇到", "query": "被嚇到"},
-    {"label": "吐槽", "query": "吐槽朋友"},
+    {"label": "驚訝", "query": "非常驚訝"},
+    {"label": "累", "query": "覺得很累"},
+    {"label": "想睡覺", "query": "很睏，想睡覺"},
+    {"label": "想休息", "query": "想休息"},
     {"label": "不想上班", "query": "不想上班"},
     {"label": "懶得理你", "query": "懶得理你"},
     {"label": "不知道說什麼", "query": "不知道該說什麼"},
-    {"label": "想休息", "query": "想休息"}
+    {"label": "吐槽", "query": "吐槽朋友"},
+    {"label": "笨蛋", "query": "覺得對方很笨"},
+    {"label": "拒絕", "query": "拒絕對方"},
+    {"label": "拜託", "query": "拜託對方幫忙"},
+    {"label": "道歉", "query": "向對方道歉"},
+    {"label": "安慰", "query": "安慰難過的人"},
+    {"label": "鼓勵", "query": "鼓勵對方不要放棄"},
+    {"label": "喜歡", "query": "表達喜歡"},
+    {"label": "感謝", "query": "向對方表示感謝"},
+    {"label": "再見", "query": "道別說再見"}
   ]
 }

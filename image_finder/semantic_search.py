@@ -743,6 +743,67 @@ def semantic_search(
     ]
 
 
+def semantic_neighbors(
+    index_path: Path,
+    source_image_id: str,
+    spec: SemanticSpec = SemanticSpec(),
+    limit: int = 5,
+) -> list[SemanticResult]:
+    """Rank stored subtitle vectors against one stored image without re-embedding."""
+
+    if not source_image_id or limit <= 0:
+        return []
+    connection = _connect_index(index_path)
+    try:
+        run = connection.execute(
+            "SELECT spec_json FROM semantic_runs WHERE id=?", (spec.version_id,)
+        ).fetchone()
+        if run is None:
+            raise RuntimeError("semantic index is missing or uses a different version")
+        if json.loads(run["spec_json"]) != spec.as_dict():
+            raise RuntimeError("semantic index metadata does not match the requested spec")
+        source = connection.execute(
+            """
+            SELECT vector_f32 FROM subtitle_embeddings
+            WHERE run_id=? AND image_id=?
+            """,
+            (spec.version_id, source_image_id),
+        ).fetchone()
+        if source is None:
+            raise LookupError("selected image has no subtitle embedding")
+        source_vector = struct.unpack(
+            f"<{spec.dimensions}f", source["vector_f32"]
+        )
+        rows = connection.execute(
+            """
+            SELECT image_id, relative_path, subtitle_text,
+                   source_text_sha256, vector_f32
+            FROM subtitle_embeddings
+            WHERE run_id=? AND image_id<>?
+            """,
+            (spec.version_id, source_image_id),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    results = []
+    for row in rows:
+        vector = struct.unpack(f"<{spec.dimensions}f", row["vector_f32"])
+        score = sum(left * right for left, right in zip(source_vector, vector))
+        results.append(
+            SemanticResult(
+                image_id=row["image_id"],
+                relative_path=row["relative_path"],
+                subtitle_text=row["subtitle_text"],
+                source_text_sha256=row["source_text_sha256"],
+                score=score,
+            )
+        )
+    return sorted(results, key=lambda item: (-item.score, item.relative_path.casefold()))[
+        :limit
+    ]
+
+
 def indexed_lexical_search(
     index_path: Path,
     query: str,

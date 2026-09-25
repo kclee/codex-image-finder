@@ -6,6 +6,7 @@ import sys
 import threading
 import time
 from collections import deque
+from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import (
@@ -20,7 +21,7 @@ from PySide6.QtCore import (
     Signal,
     Slot,
 )
-from PySide6.QtGui import QDesktopServices, QIcon, QPixmap
+from PySide6.QtGui import QDesktopServices, QIcon, QImage, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -55,7 +56,9 @@ from .app_search import (
     SEMANTIC_PAGE_SIZE,
     AppSearchService,
     SearchMode,
+    SortOrder,
     SemanticIndexUnavailable,
+    SemanticSourceUnavailable,
     build_application_semantic_index,
     estimated_semantic_build_seconds,
     load_semantic_presets,
@@ -73,6 +76,16 @@ def _format_duration(seconds: float) -> str:
     if seconds < 3600:
         return f"{seconds / 60:.1f}m"
     return f"{seconds / 3600:.1f}h"
+
+
+def copy_image_file_to_clipboard(path: Path, clipboard: object) -> bool:
+    """Read an image into clipboard memory without writing to its source path."""
+
+    image = QImage(str(path))
+    if image.isNull():
+        return False
+    clipboard.setImage(image)  # type: ignore[attr-defined]
+    return True
 
 
 class GalleryModel(QAbstractListModel):
@@ -259,6 +272,7 @@ class MainWindow(QMainWindow):
         self.semantic_index_thread: QThread | None = None
         self.semantic_index_worker: SemanticIndexWorker | None = None
         self.semantic_visible_limit = SEMANTIC_PAGE_SIZE
+        self.similar_source_image_id: str | None = None
         self.search_service = AppSearchService(
             self.catalog,
             self.catalog.project_root / "data" / SEMANTIC_INDEX_FILENAME,
@@ -271,7 +285,7 @@ class MainWindow(QMainWindow):
         self.active_ocr_started_at = 0.0
         self.active_ocr_is_all = False
         self.close_after_ocr = False
-        self.setWindowTitle("Image Finder v0.1")
+        self.setWindowTitle("Image Finder v0.2")
         self.resize(1280, 780)
 
         self.search_box = QLineEdit()
@@ -286,6 +300,14 @@ class MainWindow(QMainWindow):
         self.search_mode_selector.currentIndexChanged.connect(self.change_search_mode)
         self.search_button = QPushButton("Search")
         self.search_button.clicked.connect(self.execute_search)
+        self.sort_selector = QComboBox()
+        self.sort_selector.addItem("Relevance", "relevance")
+        self.sort_selector.addItem("Newest first", "newest")
+        self.sort_selector.addItem("Oldest first", "oldest")
+        self.sort_selector.setToolTip(
+            "Newest and Oldest use the source file modification time saved during scanning"
+        )
+        self.sort_selector.currentIndexChanged.connect(self.change_sort_order)
 
         self.review_filter_selector = QComboBox()
         self.review_filter_selector.addItem("Review: any status", None)
@@ -306,6 +328,7 @@ class MainWindow(QMainWindow):
         search_layout.addWidget(self.search_mode_selector)
         search_layout.addWidget(self.search_box, 1)
         search_layout.addWidget(self.search_button)
+        search_layout.addWidget(self.sort_selector)
         search_layout.addWidget(self.review_filter_selector)
         search_layout.addWidget(self.scan_button)
 
@@ -324,7 +347,7 @@ class MainWindow(QMainWindow):
                     query
                 )
             )
-            preset_layout.addWidget(button, index // 5, index % 5 + 1)
+            preset_layout.addWidget(button, index // 6, index % 6 + 1)
 
         self.semantic_status = QLabel()
         self.semantic_status.setWordWrap(True)
@@ -519,6 +542,18 @@ class MainWindow(QMainWindow):
         )
         self.copy_subtitle_button.setEnabled(False)
         self.copy_subtitle_button.clicked.connect(self.copy_subtitle_text)
+        self.copy_image_button = QPushButton("Copy image")
+        self.copy_image_button.setToolTip(
+            "Copy the selected image data for pasting into LINE, Discord, or another app"
+        )
+        self.copy_image_button.setEnabled(False)
+        self.copy_image_button.clicked.connect(self.copy_image)
+        self.find_similar_button = QPushButton("Find similar subtitles")
+        self.find_similar_button.setToolTip(
+            "Find images with similar OCR subtitle meaning; this is not visual similarity"
+        )
+        self.find_similar_button.setEnabled(False)
+        self.find_similar_button.clicked.connect(self.find_similar_selected)
         self.open_folder_button = QPushButton("Open containing folder")
         self.open_folder_button.setEnabled(False)
         self.open_folder_button.clicked.connect(self.open_containing_folder)
@@ -529,6 +564,8 @@ class MainWindow(QMainWindow):
         file_actions_layout = QHBoxLayout(file_actions)
         file_actions_layout.setContentsMargins(0, 0, 0, 0)
         file_actions_layout.addWidget(self.copy_subtitle_button)
+        file_actions_layout.addWidget(self.copy_image_button)
+        file_actions_layout.addWidget(self.find_similar_button)
         file_actions_layout.addWidget(self.open_image_button)
         file_actions_layout.addWidget(self.open_folder_button)
 
@@ -563,7 +600,11 @@ class MainWindow(QMainWindow):
     def current_search_mode(self) -> SearchMode:
         return str(self.search_mode_selector.currentData())  # type: ignore[return-value]
 
+    def current_sort_order(self) -> SortOrder:
+        return str(self.sort_selector.currentData())  # type: ignore[return-value]
+
     def search_text_changed(self, _text: str) -> None:
+        self.similar_source_image_id = None
         self.semantic_visible_limit = SEMANTIC_PAGE_SIZE
         if self.current_search_mode() == "literal":
             self.refresh_results()
@@ -574,6 +615,7 @@ class MainWindow(QMainWindow):
         self.refresh_ocr_preview()
 
     def change_search_mode(self, _index: int) -> None:
+        self.similar_source_image_id = None
         semantic = self.current_search_mode() == "semantic"
         self.preset_row.setVisible(semantic)
         self.semantic_status_row.setVisible(semantic)
@@ -589,6 +631,11 @@ class MainWindow(QMainWindow):
             self.refresh_results()
 
     def execute_search(self) -> None:
+        self.similar_source_image_id = None
+        self.semantic_visible_limit = SEMANTIC_PAGE_SIZE
+        self.refresh_results()
+
+    def change_sort_order(self, _index: int) -> None:
         self.semantic_visible_limit = SEMANTIC_PAGE_SIZE
         self.refresh_results()
 
@@ -601,6 +648,26 @@ class MainWindow(QMainWindow):
 
     def show_more_semantic_results(self) -> None:
         self.semantic_visible_limit += SEMANTIC_PAGE_SIZE
+        self.refresh_results()
+
+    def find_similar_selected(self) -> None:
+        if self.current_result is None:
+            return
+        self.search_mode_selector.blockSignals(True)
+        self.search_mode_selector.setCurrentIndex(
+            self.search_mode_selector.findData("semantic")
+        )
+        self.search_mode_selector.blockSignals(False)
+        self.preset_row.setVisible(True)
+        self.semantic_status_row.setVisible(True)
+        self.search_box.blockSignals(True)
+        self.search_box.clear()
+        self.search_box.blockSignals(False)
+        self.similar_source_image_id = self.current_result.image_id
+        self.semantic_visible_limit = SEMANTIC_PAGE_SIZE
+        self.statusBar().showMessage(
+            "Finding similar OCR subtitle meaning; image pixels are not compared"
+        )
         self.refresh_results()
 
     def refresh_semantic_index_status(self) -> None:
@@ -1135,18 +1202,34 @@ class MainWindow(QMainWindow):
             if mode == "semantic":
                 QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
                 QApplication.processEvents()
-            page = self.search_service.search(
-                self.search_box.text(),
-                mode,
-                self.current_group,
-                visible_limit=self.semantic_visible_limit,
-            )
+            if self.similar_source_image_id is not None:
+                page = self.search_service.find_similar(
+                    self.similar_source_image_id,
+                    self.current_group,
+                    visible_limit=self.semantic_visible_limit,
+                    sort_order=self.current_sort_order(),
+                )
+            else:
+                page = self.search_service.search(
+                    self.search_box.text(),
+                    mode,
+                    self.current_group,
+                    visible_limit=self.semantic_visible_limit,
+                    sort_order=self.current_sort_order(),
+                )
             results = [match.result for match in page.matches]
         except SemanticIndexUnavailable as error:
             results = []
             page = None
             self.count_label.setText(
                 f"Meaning search unavailable · index {error.status.reason.replace('_', ' ')}"
+            )
+            self.more_results_button.hide()
+        except SemanticSourceUnavailable:
+            results = []
+            page = None
+            self.count_label.setText(
+                "Find Similar unavailable · the selected image has no indexed OCR subtitle"
             )
             self.more_results_button.hide()
         except Exception as error:
@@ -1181,7 +1264,16 @@ class MainWindow(QMainWindow):
             ]
         self.gallery_model.replace(results)
         if page is not None:
-            if mode == "semantic":
+            if page.mode == "similar":
+                self.count_label.setText(
+                    f"Similar subtitle meanings: showing {len(results):,} of "
+                    f"{page.total:,} candidates · not visual similarity"
+                )
+                self.more_results_button.setVisible(page.has_more)
+                self.more_results_button.setText(
+                    f"More similar subtitles (+{SEMANTIC_PAGE_SIZE})"
+                )
+            elif mode == "semantic":
                 self.count_label.setText(
                     f"Meaning results: showing {len(results):,} of {page.total:,} "
                     "ranked OCR subtitles"
@@ -1214,6 +1306,8 @@ class MainWindow(QMainWindow):
             self.details.clear()
             self.refresh_review_controls(False)
             self.copy_subtitle_button.setEnabled(False)
+            self.copy_image_button.setEnabled(False)
+            self.find_similar_button.setEnabled(False)
             self.open_image_button.setEnabled(False)
             self.open_folder_button.setEnabled(False)
             return
@@ -1230,8 +1324,16 @@ class MainWindow(QMainWindow):
                     Qt.TransformationMode.SmoothTransformation,
                 )
             )
+        modified = (
+            datetime.fromtimestamp(result.source_modified_ns / 1_000_000_000)
+            .astimezone()
+            .strftime("%Y-%m-%d %H:%M:%S")
+            if result.source_modified_ns is not None
+            else "Unknown"
+        )
         self.details.setText(
             f"{result.relative_path}\n\n{result.width} × {result.height}\n\n"
+            f"Source modified: {modified}\n\n"
             f"{result.absolute_path}"
         )
         history = self.catalog.analysis_history(result.image_id)
@@ -1256,6 +1358,8 @@ class MainWindow(QMainWindow):
         )
         self.open_image_button.setEnabled(result.absolute_path.is_file())
         self.open_folder_button.setEnabled(result.absolute_path.is_file())
+        self.copy_image_button.setEnabled(result.absolute_path.is_file())
+        self.find_similar_button.setEnabled(bool(result.subtitle_text.strip()))
 
     def refresh_review_controls(self, has_current_ocr: bool) -> None:
         buttons = (
@@ -1359,6 +1463,23 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(
             "Traditional Chinese subtitle copied to the clipboard"
         )
+
+    def copy_image(self) -> None:
+        if self.current_result is None:
+            return
+        path = self.current_result.absolute_path
+        if not path.is_file():
+            return
+        if copy_image_file_to_clipboard(path, QApplication.clipboard()):
+            self.statusBar().showMessage(
+                "Image copied to the clipboard; paste it into the destination app"
+            )
+        else:
+            QMessageBox.warning(
+                self,
+                "Copy image failed",
+                "The selected file could not be decoded as an image.",
+            )
 
     def open_containing_folder(self) -> None:
         if self.current_result is None:

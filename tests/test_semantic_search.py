@@ -13,6 +13,7 @@ from image_finder.catalog import Catalog
 from image_finder.app_search import (
     AppSearchService,
     SemanticIndexUnavailable,
+    SemanticSourceUnavailable,
     load_semantic_presets,
 )
 from image_finder.semantic_search import (
@@ -28,6 +29,7 @@ from image_finder.semantic_search import (
     representative_subtitle_sample,
     sample_distribution,
     semantic_search,
+    semantic_neighbors,
     semantic_index_status,
 )
 
@@ -485,6 +487,170 @@ class ApplicationSearchTests(unittest.TestCase):
                 {preset.label: preset.query for preset in presets}["無奈"],
                 "很無奈",
             )
+            self.assertEqual(len(presets), 25)
+            self.assertEqual(len({preset.label for preset in presets}), 25)
+            self.assertEqual(
+                {preset.label: preset.query for preset in presets}["安慰"],
+                "安慰難過的人",
+            )
+
+    def test_sorting_uses_stored_source_modification_time_and_is_stable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project, catalog_path = make_catalog(
+                root,
+                {
+                    "old.png": "合成共同字幕",
+                    "same-a.png": "合成共同字幕",
+                    "same-b.png": "合成共同字幕",
+                    "new.png": "合成共同字幕",
+                },
+            )
+            connection = sqlite3.connect(catalog_path)
+            connection.execute(
+                """
+                UPDATE file_locations SET source_modified_ns = CASE relative_path
+                    WHEN 'old.png' THEN 100
+                    WHEN 'same-a.png' THEN 200
+                    WHEN 'same-b.png' THEN 200
+                    WHEN 'new.png' THEN 300
+                END
+                """
+            )
+            connection.commit()
+            connection.close()
+            catalog = Catalog(catalog_path, project)
+            try:
+                service = AppSearchService(
+                    catalog,
+                    project / "data" / "unused.sqlite3",
+                    project / "models",
+                )
+                relevance = service.search("共同", "literal", sort_order="relevance")
+                newest = service.search("共同", "literal", sort_order="newest")
+                oldest = service.search("共同", "literal", sort_order="oldest")
+                self.assertEqual(
+                    [match.result.relative_path for match in relevance.matches],
+                    ["new.png", "old.png", "same-a.png", "same-b.png"],
+                )
+                self.assertEqual(
+                    [match.result.relative_path for match in newest.matches],
+                    ["new.png", "same-a.png", "same-b.png", "old.png"],
+                )
+                self.assertEqual(
+                    [match.result.relative_path for match in oldest.matches],
+                    ["old.png", "same-a.png", "same-b.png", "new.png"],
+                )
+            finally:
+                catalog.close()
+
+    def test_semantic_sorting_more_and_find_similar_reuse_stored_vectors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project, catalog_path = make_catalog(
+                root,
+                {
+                    "source.png": "合成開心字幕",
+                    "close.png": "合成高興字幕",
+                    "middle.png": "合成普通字幕",
+                    "newest.png": "合成其他字幕",
+                },
+            )
+            connection = sqlite3.connect(catalog_path)
+            connection.row_factory = sqlite3.Row
+            connection.execute(
+                """
+                UPDATE file_locations SET source_modified_ns = CASE relative_path
+                    WHEN 'source.png' THEN 100
+                    WHEN 'close.png' THEN 200
+                    WHEN 'middle.png' THEN 300
+                    WHEN 'newest.png' THEN 400
+                END
+                """
+            )
+            source_id = connection.execute(
+                "SELECT image_id FROM file_locations WHERE relative_path='source.png'"
+            ).fetchone()["image_id"]
+            connection.commit()
+            connection.close()
+            index_path = project / "data" / "application-semantic.sqlite3"
+            spec = self.application_fake_spec()
+            embedder = FakeEmbedder(
+                {
+                    "合成開心字幕": [1, 0],
+                    "合成高興字幕": [0.9, 0.1],
+                    "合成普通字幕": [0.5, 0.5],
+                    "合成其他字幕": [0, 1],
+                    "合成快樂概念": [1, 0],
+                }
+            )
+            build_trial_index(catalog_path, index_path, embedder, spec)
+            catalog = Catalog(catalog_path, project)
+            try:
+                service = AppSearchService(
+                    catalog,
+                    index_path,
+                    project / "models",
+                    spec=spec,
+                    embedder_factory=lambda: embedder,
+                )
+                first = service.search(
+                    "合成快樂概念", "semantic", visible_limit=2, sort_order="newest"
+                )
+                expanded = service.search(
+                    "合成快樂概念", "semantic", visible_limit=4, sort_order="newest"
+                )
+                self.assertEqual(
+                    [match.result.image_id for match in first.matches],
+                    [match.result.image_id for match in expanded.matches[:2]],
+                )
+                self.assertEqual(
+                    [match.result.relative_path for match in expanded.matches],
+                    ["newest.png", "middle.png", "close.png", "source.png"],
+                )
+
+                embedder.calls.clear()
+                similar = service.find_similar(source_id, visible_limit=3)
+                self.assertEqual(embedder.calls, [])
+                self.assertNotIn(
+                    source_id,
+                    [match.result.image_id for match in similar.matches],
+                )
+                self.assertEqual(similar.matches[0].result.relative_path, "close.png")
+                direct = semantic_neighbors(index_path, source_id, spec, limit=3)
+                self.assertEqual(direct[0].relative_path, "close.png")
+            finally:
+                catalog.close()
+
+    def test_find_similar_reports_missing_embedding(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project, catalog_path = make_catalog(
+                root,
+                {"indexed.png": "合成有效字幕", "missing.png": ""},
+            )
+            index_path = project / "data" / "application-semantic.sqlite3"
+            spec = self.application_fake_spec()
+            embedder = FakeEmbedder({"合成有效字幕": [1, 0]})
+            build_trial_index(catalog_path, index_path, embedder, spec)
+            catalog = Catalog(catalog_path, project)
+            try:
+                missing = next(
+                    result
+                    for result in catalog.search("")
+                    if result.relative_path == "missing.png"
+                )
+                service = AppSearchService(
+                    catalog,
+                    index_path,
+                    project / "models",
+                    spec=spec,
+                    embedder_factory=lambda: embedder,
+                )
+                with self.assertRaises(SemanticSourceUnavailable):
+                    service.find_similar(missing.image_id)
+            finally:
+                catalog.close()
 
     def test_missing_semantic_index_is_reported_clearly(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

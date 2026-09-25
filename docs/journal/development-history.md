@@ -139,3 +139,31 @@ seconds; representative warm searches measured about 166–183 ms. The first 24 
 remained an exact prefix after expansion to 48. Literal search and OpenCC behavior were
 rechecked independently. The bounded visual experiment remains parked: v0.1 does not
 load SigLIP, embed pixels, fuse rankings, or add server/cloud components.
+
+## v0.2 usage-driven improvements
+
+The first usage-driven update retains the v0.1 architecture and adds stable Relevance,
+Newest first, and Oldest first sorting. Dates use the source modification timestamp
+already captured by the scanner. Literal sorting covers all literal matches; semantic
+date sorting reorders a bounded top-240 MiniLM candidate set without modifying cosine
+scores. Equal timestamps retain their existing deterministic order, and More continues
+to append 24 results without changing the visible prefix.
+
+Find Similar uses the selected image's existing stored MiniLM subtitle vector as the
+query and excludes that image from the result. It performs no model inference, pixel
+analysis, or index rebuild. The UI explicitly calls the result “similar subtitle
+meanings” and handles missing embeddings without failing. A live read-only check against
+the current index returned the first 24 neighbors in about 110 ms and excluded the
+source identity.
+
+Copy image now decodes the selected file into the native Qt image clipboard so it can be
+pasted into compatible messaging applications. It does not write to the source file.
+Copy subtitle remains unchanged. The semantic preset configuration expanded from 10 to
+25 editable JSON queries; none are stored as image classifications.
+
+A bounded no-model keyword experiment compared latest subtitle-only OCR with latest full
+OCR. It normalizes to Traditional Chinese and ranks recurring 2–4-character CJK phrases
+after deterministic stop/noise filtering. The ignored local report contains aggregate
+counts only, without paths, identities, or full OCR text. Several broad concepts looked
+useful, but grammar fragments and recurring overlay text remained prominent. Keyword
+browsing therefore stays experimental and was not added to the v0.2 interface.

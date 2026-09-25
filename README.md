@@ -43,7 +43,7 @@ exception described below; they remain portable and should be backed up.
 - Persistent interchange uses SQLite, JSON, and ordinary files rather than Python-only
   serialization such as pickle.
 
-## Run Image Finder v0.1
+## Run Image Finder v0.2
 
 Double-click `start-image-finder.cmd`, or run:
 
@@ -65,6 +65,24 @@ workflow is intentionally simple:
    Explorer for sharing or drag-and-drop.
 5. Advanced OCR and review controls remain available under the collapsed **OCR tools**
    section.
+
+The sort selector supports **Relevance**, **Newest first**, and **Oldest first**.
+“Newest” means the source file's modification timestamp captured in the local catalog
+during scanning; sorting does not repeatedly inspect the source collection. Ties retain
+their prior stable order. Literal Relevance preserves the existing literal result order.
+For meaning search, date sorting reorders the top 240 MiniLM relevance candidates rather
+than mixing dates into similarity or allowing unrelated recent files to dominate.
+
+Select a result and choose **Find similar subtitles** to compare its already-stored
+MiniLM subtitle vector with the other stored subtitle vectors. The selected image is
+excluded, the result is explicitly labeled as subtitle/meaning similarity, and **More**
+continues in stable batches of 24. No model inference or index rebuild is required. An
+image without an indexed OCR subtitle produces a clear unavailable message.
+
+**Copy image** places decoded image data on the system clipboard for pasting into apps
+such as LINE or Discord. It only reads the selected source file and never modifies it.
+Clipboard image-format support ultimately depends on the destination application; the
+existing **Copy subtitle text** action remains separate.
 
 The editable meaning presets live in `semantic-presets.json`. The semantic index is
 derived local data at `data\semantic-subtitle-v0.1.sqlite3`. If it is missing or stale,
@@ -259,6 +277,26 @@ SQLite file. A cold semantic search, including local model initialization, took 
 independently rechecked, and expanding from 24 to 48 semantic results preserved the
 first 24 identities exactly. These measurements are machine-specific. Visual/SigLIP
 search remains parked and is not part of the v0.1 desktop application.
+
+### v0.2 presets and bounded keyword exploration
+
+The editable preset configuration now contains 25 reaction and conversational searches,
+including surprise, embarrassment, laughter, anger, sadness, tiredness, rest, work
+avoidance, teasing, refusal, apology, comfort, encouragement, affection, thanks, and
+farewell. These remain ordinary semantic queries, not permanent image labels.
+
+The bounded keyword experiment can be rerun with:
+
+```powershell
+.\.venv\Scripts\python.exe explore_keywords.py --limit 40
+```
+
+It uses no additional model. It normalizes existing OCR to Traditional Chinese, counts
+recurring 2–4-character CJK phrases, removes common conversational fragments and repeated
+character noise, and writes counts-only output to the ignored local file
+`results\keyword-exploration.json`. It stores no source paths, image identities, or full
+OCR text. The real collection sample still mixed useful concepts with grammar fragments
+and recurring overlay text, so keyword browsing was not added to the v0.2 UI.
 
 ### 1,000-subtitle evaluation and experimental hybrid search
 
